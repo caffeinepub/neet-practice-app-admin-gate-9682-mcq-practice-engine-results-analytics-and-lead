@@ -1,0 +1,232 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 9,
+  "summary": "Full-stack NEET practice web app for Physics/Chemistry/Biology with student practice mode and contributor/admin mode unlocked via global password (9682). Includes MCQ question engine with per-question timer, performance tracking (time per question, wrong answers with solutions), leaderboard/rankings, and persistent storage using Node/Express with MongoDB or PostgreSQL plus React/Next.js + Tailwind frontend.",
+  "architectural_notes": [
+    "Tech stack target: Node.js/Express backend; React.js or Next.js frontend with Tailwind CSS; DB: MongoDB or PostgreSQL",
+    "Global admin/contributor access is unlocked via a shared password (9682)"
+  ],
+  "known_issues": [
+    "App renders blank/empty UI: no subjects, no questions, and no admin button visible.",
+    "Admin button is visible, but entering correct password (9682) fails to open admin mode and shows error: \"actor not available\"."
+  ],
+  "isFixRequest": true,
+  "existing_features": [
+    {
+      "id": "feature-frontend-create-an-app-wide-mobile-first-ui-theme-with-a-coherent-visual-style-colors-typography-spacing-components-applied-consistently-across-pages-avoid-a-blue-purple-primary-palette",
+      "title": "Frontend: create an app-wide, mobile-first UI theme with a coherent visual style (colors, typography, spacing, components) applied consistently across pages. Avoid a blue/purple primary palette.",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-frontend-implement-the-contributor-admin-gate-ui-a-password-entry-screen-button-that-submits-9682-or-another-entered-value-to-the-backend-to-unlock-admin-mode-for-the-current-identity-and-conditionally-reveals-admin-pages-actions-based-on-backend-reported-admin-status",
+      "title": "Frontend: implement the Contributor/Admin gate UI: a password entry screen/button that submits '9682' (or another entered value) to the backend to unlock Admin Mode for the current identity, and conditionally reveals Admin pages/actions based on backend-reported admin status.",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-frontend-implement-student-mode-flow-screens-1-subject-selection-physics-chemistry-biology-2-chapter-selection-filtered-by-subject-and-3-start-practice-session",
+      "title": "Frontend: implement Student Mode flow screens: (1) subject selection (Physics/Chemistry/Biology), (2) chapter selection filtered by subject, and (3) start practice session.",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-frontend-build-the-mcq-practice-screen-ui-with-exactly-4-options-per-question-and-a-per-question-timer-capture-the-selected-option-and-the-time-spent-submit-to-backend-and-progress-through-the-session-until-completion",
+      "title": "Frontend: build the MCQ Practice screen UI with exactly 4 options per question and a per-question timer. Capture the selected option and the time spent, submit to backend, and progress through the session until completion.",
+      "reqIds": [
+        "REQ-9"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-frontend-implement-results-summary-screen-after-a-session-show-time-taken-per-question-total-score-accuracy-for-the-session-and-a-list-of-wrong-answers-that-includes-the-correct-option-and-the-solution-explanation-text",
+      "title": "Frontend: implement Results summary screen after a session: show time taken per question, total score/accuracy for the session, and a list of wrong answers that includes the correct option and the solution/explanation text.",
+      "reqIds": [
+        "REQ-10"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-frontend-implement-a-rankings-page-that-displays-the-leaderboard-rank-student-name-cumulative-accuracy-total-questions-solved-and-highlights-the-current-student-s-row-position-if-available",
+      "title": "Frontend: implement a Rankings page that displays the leaderboard (rank, student name, cumulative accuracy, total questions solved) and highlights the current student’s row/position if available.",
+      "reqIds": [
+        "REQ-11"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-frontend-backend-provide-an-in-repo-developer-facing-directory-structure-overview-and-api-surface-documentation-that-reflects-the-actual-generated-motoko-react-project-including-endpoints-methods-for-admin-unlock-chapters-questions-management-session-flow-results-and-leaderboard",
+      "title": "Frontend + Backend: provide an in-repo developer-facing directory structure overview and API surface documentation that reflects the actual generated Motoko + React project (including endpoints/methods for admin unlock, chapters/questions management, session flow, results, and leaderboard).",
+      "reqIds": [
+        "REQ-12"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-tanstack-router-rendering-so-routed-pages-home-subject-admin-etc-reliably-render-inside-the-appshell-main-content-area-instead-of-a-blank-screen",
+      "title": "Fix TanStack Router rendering so routed pages (Home/Subject/Admin/etc.) reliably render inside the AppShell main content area, instead of a blank screen.",
+      "reqIds": [
+        "REQ-13"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-app-never-blocks-initial-rendering-behind-profile-fetching-when-the-user-is-not-authenticated-the-home-page-must-be-visible-to-anonymous-users-and-must-display-a-clear-login-prompt-instead-of-a-blank-screen",
+      "title": "Ensure the app never blocks initial rendering behind profile fetching when the user is not authenticated; the Home page must be visible to anonymous users and must display a clear login prompt instead of a blank screen.",
+      "reqIds": [
+        "REQ-14"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-global-user-friendly-fallback-ui-for-unexpected-frontend-errors-so-that-if-any-page-throws-router-queries-auth-the-user-sees-an-error-message-and-a-recovery-action-e-g-reload-rather-than-a-fully-blank-screen",
+      "title": "Add a global, user-friendly fallback UI for unexpected frontend errors so that if any page throws (router, queries, auth), the user sees an error message and a recovery action (e.g., \"Reload\"), rather than a fully blank screen.",
+      "reqIds": [
+        "REQ-15"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-frontend-admin-unlock-flow-to-avoid-throwing-actor-not-available-and-to-use-the-new-backend-admin-unlock-api-end-to-end",
+      "title": "Fix the frontend admin unlock flow to avoid throwing \"Actor not available\" and to use the new backend admin-unlock API end-to-end.",
+      "reqIds": [
+        "REQ-17"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-harden-admin-gated-navigation-and-rendering-so-users-never-get-stuck-with-a-non-functional-admin-button-due-to-transient-actor-initialization",
+      "title": "Harden admin-gated navigation and rendering so users never get stuck with a non-functional Admin button due to transient actor initialization.",
+      "reqIds": [
+        "REQ-18"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-frontend-admin-gate-flow-visibly-transitions-to-admin-mode-immediately-after-a-successful-unlock-no-manual-refresh-the-admin-page-should-switch-from-the-password-gate-to-the-admin-panel-and-the-admin-navigation-link-should-appear-when-the-backend-reports-admin-status",
+      "title": "Ensure the frontend Admin Gate flow visibly transitions to Admin Mode immediately after a successful unlock (no manual refresh): the Admin page should switch from the password gate to the admin panel and the Admin navigation link should appear when the backend reports admin status.",
+      "reqIds": [
+        "REQ-21"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Implement contributor/admin mode gated by a global password (9682) to add/edit questions and manage chapters",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Implement student mode: select subject (Physics/Chemistry/Biology) and chapter to start practice session",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Build MCQ question engine with 4 options and per-question timer",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Add performance tracking after tests: time per question, wrong answers list with correct solutions",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Create leaderboard/rankings page based on cumulative accuracy and total questions solved (students can see each other’s rank)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Add persistent database storage and schema/models for User, Question, and TestResult (MongoDB or PostgreSQL)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-7",
+      "summary": "Provide project directory structure plus API logic for password check and frontend UI for MCQ practice screen",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-8",
+      "summary": "Implement persistent backend data models and storage in the single Motoko actor for: Subjects (Physics/Chemistry/Biology), Chapters (per subject), Questions (MCQ with 4 options, correct option, explanation/solution), Users (student display name + cumulative stats), and TestResults/Attempts (per-question chosen option + correctness + time taken).",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-9",
+      "summary": "Create a global 'Contributor/Admin Mode' gate using the password '9682': add a backend API that verifies the password and, on success, marks the caller principal as a contributor/admin (persistently). Expose an API to query whether the caller is currently an admin.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-10",
+      "summary": "Implement backend admin-only management APIs for chapters and questions: create/list/update/delete chapters and create/list/update/delete questions scoped by subject+chapter. Enforce authorization so only admin principals can mutate chapters/questions.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-11",
+      "summary": "Implement backend practice session workflow APIs: start a practice session for a selected subject+chapter, serve questions (MCQ), accept answers with time spent per question, and finalize to produce a TestResult that includes per-question timing, correctness, and solutions for review.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-12",
+      "summary": "Implement backend leaderboard/rankings computation and API: return a ranking list of students based on cumulative accuracy and total questions solved, and allow a student to see their own rank/position among others.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-13",
+      "summary": "Add an explicit backend API for unlocking Admin Mode using the global password so the frontend does not depend on internal actor identity fields or ambiguous authorization-mixin method signatures.",
+      "reqIds": [
+        "REQ-16"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-14",
+      "summary": "Update the backend global admin password so that entering password \"9682\" in the UI successfully unlocks Admin Mode for the caller principal.",
+      "reqIds": [
+        "REQ-19"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-15",
+      "summary": "Add a conditional backend state migration so existing deployed canisters that still have the previous default admin password value are upgraded to use \"9682\" without requiring an existing admin principal.",
+      "reqIds": [
+        "REQ-20"
+      ],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "NEET Practice App: Admin gate (9682), MCQ practice engine, results analytics, and leaderboard with persistent Motoko storage",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

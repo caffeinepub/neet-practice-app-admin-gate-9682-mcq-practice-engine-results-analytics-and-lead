@@ -1,0 +1,36 @@
+{
+  "kind": "spec_vs_diff_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-06T18:59:42.270Z",
+  "summary": "Backend admin password default was changed to \"9682\" and a conditional migration module was added to update existing state when the stored password is still \"admin123\". Frontend unlock flow was updated to show English errors and to optimistically update cached admin state after successful unlock. However, the diff does not provide evidence that the header/navigation Admin link visibility updates immediately after unlock, as required.",
+  "missing_requirements": [
+    {
+      "id": "REQ-21",
+      "requirement": "Ensure the frontend Admin Gate flow visibly transitions to Admin Mode immediately after a successful unlock (no manual refresh): the Admin page should switch from the password gate to the admin panel and the Admin navigation link should appear when the backend reports admin status.",
+      "reason": "The diff shows optimistic cache updates for admin state and improved gate UI messaging, but does not include any evidence of changes to the header/navigation component responsible for showing the Admin button/link. Without modifications to the nav (or evidence that it already reacts to the updated queries), the AC about the header Admin link appearing immediately is not demonstrated by the diff summary.",
+      "evidence": [
+        "frontend/src/hooks/useAuthz.ts",
+        "frontend/src/components/admin/AdminGateCard.tsx",
+        "frontend-file-summaries.txt (mentions AppShell contains navigation, but no diff shown for it)"
+      ]
+    }
+  ],
+  "hallucinated_features": [
+    {
+      "description": "Added an admin-only backend API to change the global admin password (setAdminPassword).",
+      "reason": "BuildRequest only asked to change the default password to 9682 and add a conditional migration; it did not request introducing new password-management functionality.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    }
+  ],
+  "confidence": 0.66,
+  "changed_files": [
+    "backend/main.mo",
+    "backend/migration.mo",
+    "frontend-file-summaries.txt",
+    "frontend/src/components/admin/AdminGateCard.tsx",
+    "frontend/src/hooks/useAuthz.ts",
+    "project_state.json"
+  ]
+}

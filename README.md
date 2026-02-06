@@ -1,2 +1,3 @@
-# neet-practice-app-admin-gate-9682-mcq-practice-engine-results-analytics-and-lead
-Exported from Caffeine project: NEET Practice App: Admin gate (9682), MCQ practice engine, results analytics, and leaderboard with persistent Motoko storage
+## 
+
+To run app build and run docker image: `docker build -t app . docker run -it --network host app`

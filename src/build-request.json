@@ -1,0 +1,86 @@
+{
+  "kind": "build_request",
+  "title": "Fix admin unlock so password 9682 successfully enables Admin Mode",
+  "priority": "high",
+  "requirements": [
+    {
+      "id": "REQ-19",
+      "text": "Update the backend global admin password so that entering password \"9682\" in the UI successfully unlocks Admin Mode for the caller principal.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "It does not unlock after putting password 9682"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Calling backend unlockAdminMode(\"9682\") returns true for a logged-in caller.",
+        "Calling backend unlockAdminMode(\"wrong\") returns false and does not assign admin role.",
+        "The backend no longer uses the default admin password value \"admin123\" in a way that prevents \"9682\" from working."
+      ]
+    },
+    {
+      "id": "REQ-20",
+      "text": "Add a conditional backend state migration so existing deployed canisters that still have the previous default admin password value are upgraded to use \"9682\" without requiring an existing admin principal.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "It does not unlock after putting password 9682"
+        ]
+      },
+      "acceptanceCriteria": [
+        "On upgrade, if the stored stable admin password equals the previous default (\"admin123\"), it is changed to \"9682\".",
+        "On upgrade, if the stored stable admin password has already been customized to a non-default value, it is preserved (no forced overwrite).",
+        "After upgrade, a user can unlock admin mode with \"9682\" in environments that previously had the default password."
+      ]
+    },
+    {
+      "id": "REQ-21",
+      "text": "Ensure the frontend Admin Gate flow visibly transitions to Admin Mode immediately after a successful unlock (no manual refresh): the Admin page should switch from the password gate to the admin panel and the Admin navigation link should appear when the backend reports admin status.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "It does not unlock after putting password 9682"
+        ]
+      },
+      "acceptanceCriteria": [
+        "After entering \"9682\" and seeing a success confirmation, the Admin page renders the admin panel in the same session without a reload.",
+        "After successful unlock, the header navigation shows the Admin button/link for the authenticated user.",
+        "If the password is incorrect, the user sees an English error message indicating the password is invalid and remains on the gate screen."
+      ]
+    }
+  ],
+  "constraints": [
+    "Backend must remain a single Motoko actor (all logic in backend/main.mo).",
+    "Create backend/migration.mo only as needed and keep migration conditional (do not overwrite customized passwords).",
+    "Do not edit any frontend files under frontend/src/components/ui or any other immutablePaths listed in SYSTEM_CONTEXT.",
+    "Use English for any user-facing text."
+  ],
+  "nonGoals": [
+    "Adding or integrating third-party authentication providers (only Internet Identity is supported).",
+    "Implementing a new admin management UI beyond making the existing unlock flow work reliably.",
+    "Changing unrelated practice, results, or leaderboard logic."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
+  }
+}
