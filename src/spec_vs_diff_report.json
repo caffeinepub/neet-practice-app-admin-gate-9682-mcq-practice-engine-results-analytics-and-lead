@@ -1,36 +1,55 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T18:59:42.270Z",
-  "summary": "Backend admin password default was changed to \"9682\" and a conditional migration module was added to update existing state when the stored password is still \"admin123\". Frontend unlock flow was updated to show English errors and to optimistically update cached admin state after successful unlock. However, the diff does not provide evidence that the header/navigation Admin link visibility updates immediately after unlock, as required.",
+  "generatedAt": "2026-02-06T21:53:14.893Z",
+  "summary": "Diff adds a frontend Live deployment config with a hardcoded Live name and validation helper, plus UI branding changes that reference the Live display name. However, there is no evidence in the provided diff summary of the actual Internet Computer “publish to Live/permanent” action (e.g., project rename/deployment configuration changes) being implemented.",
   "missing_requirements": [
     {
-      "id": "REQ-21",
-      "requirement": "Ensure the frontend Admin Gate flow visibly transitions to Admin Mode immediately after a successful unlock (no manual refresh): the Admin page should switch from the password gate to the admin panel and the Admin navigation link should appear when the backend reports admin status.",
-      "reason": "The diff shows optimistic cache updates for admin state and improved gate UI messaging, but does not include any evidence of changes to the header/navigation component responsible for showing the Admin button/link. Without modifications to the nav (or evidence that it already reacts to the updated queries), the AC about the header Admin link appearing immediately is not demonstrated by the diff summary.",
+      "id": "REQ-38",
+      "requirement": "Publish the current deployed Draft version as a Live (permanent) deployment on the Internet Computer by renaming the project to a valid Live domain name and pushing it live.",
+      "reason": "The diff shows only frontend configuration/constants and UI usage/validation. It does not show any deployment/rename/publish changes (such as IC project config, canister/app domain configuration, or release/publish pipeline changes) that would actually push a Draft deployment to Live/permanent.",
       "evidence": [
-        "frontend/src/hooks/useAuthz.ts",
-        "frontend/src/components/admin/AdminGateCard.tsx",
-        "frontend-file-summaries.txt (mentions AppShell contains navigation, but no diff shown for it)"
+        "frontend/src/config/liveDeployment.ts",
+        "frontend/src/components/layout/AppShell.tsx",
+        "frontend/src/pages/HomePage.tsx",
+        "frontend/index.html"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Added an admin-only backend API to change the global admin password (setAdminPassword).",
-      "reason": "BuildRequest only asked to change the default password to 9682 and add a conditional migration; it did not request introducing new password-management functionality.",
+      "description": "Added frontend-only Live deployment name validation helpers and console warning logic.",
+      "reason": "REQ-38 asks to publish/rename/push Live; it does not request adding runtime validation utilities or console warnings in the app.",
+      "evidence": [
+        "frontend/src/config/liveDeployment.ts",
+        "frontend/src/components/layout/AppShell.tsx"
+      ]
+    },
+    {
+      "description": "UI/branding changes to display a new Live display name across Home/AppShell and update HTML title/description.",
+      "reason": "REQ-38 focuses on Live deployment publishing and domain naming constraints; it does not request product rebranding or SEO metadata edits.",
+      "evidence": [
+        "frontend/src/pages/HomePage.tsx",
+        "frontend/src/components/layout/AppShell.tsx",
+        "frontend/index.html"
+      ]
+    },
+    {
+      "description": "Backend Motoko code modifications not clearly tied to Live publishing.",
+      "reason": "Non-goals specify not changing backend functionality unless required for Live publishing; the diff indicates backend changes but provides no connection to deployment/publishing.",
       "evidence": [
         "backend/main.mo"
       ]
     }
   ],
-  "confidence": 0.66,
+  "confidence": 0.72,
   "changed_files": [
     "backend/main.mo",
-    "backend/migration.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/components/admin/AdminGateCard.tsx",
-    "frontend/src/hooks/useAuthz.ts",
+    "frontend/index.html",
+    "frontend/src/components/layout/AppShell.tsx",
+    "frontend/src/config/liveDeployment.ts",
+    "frontend/src/pages/HomePage.tsx",
     "project_state.json"
   ]
 }

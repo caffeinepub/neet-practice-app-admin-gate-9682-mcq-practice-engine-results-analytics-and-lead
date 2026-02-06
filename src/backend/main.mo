@@ -2,18 +2,16 @@ import Map "mo:core/Map";
 import Order "mo:core/Order";
 import Array "mo:core/Array";
 import Principal "mo:core/Principal";
-import Pong "mo:core/Int";
+import Int "mo:core/Int";
 import Text "mo:core/Text";
 import Time "mo:core/Time";
-import VarArray "mo:core/VarArray";
 import Nat "mo:core/Nat";
 import Iter "mo:core/Iter";
 import Runtime "mo:core/Runtime";
+
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
-import Migration "migration";
 
-(with migration = Migration.run)
 actor {
   type Subject = {
     #physics;
@@ -35,6 +33,12 @@ actor {
     };
   };
 
+  public type Category = {
+    #level1;
+    #neetPYQ;
+    #jeePYQ;
+  };
+
   public type Question = {
     id : Nat;
     subject : Subject;
@@ -46,6 +50,7 @@ actor {
     optionD : Text;
     correctOption : Text;
     explanation : Text;
+    category : Category;
     createdAt : Int;
   };
 
@@ -107,6 +112,7 @@ actor {
   let questions = Map.empty<Nat, Question>();
   let userStats = Map.empty<Principal, UserStats>();
   let testResults = Map.empty<Nat, TestResult>();
+  let contributorAccess = Map.empty<Principal, Bool>();
   let userProfiles = Map.empty<Principal, UserProfile>();
 
   // Var next ids
@@ -115,28 +121,47 @@ actor {
   var nextTestResultId = 1;
 
   // Persistent admin password only authorized via principal
-  var adminPassword = "9682";
+  var contributorPassword = "9682";
+
+  // Persistent count of unique authenticated users
+  var totalAuthenticatedUsers = 0;
 
   // Enable persistent authorization with prefabricated module
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  // Unlock administrator mode using global password
-  public shared ({ caller }) func unlockAdminMode(password : Text) : async Bool {
-    if (password == adminPassword) {
-      AccessControl.assignRole(accessControlState, caller, caller, #admin);
+  // Unlock contributor mode using global password
+  public shared ({ caller }) func unlockContributorMode(password : Text) : async Bool {
+    if (password == contributorPassword) {
+      contributorAccess.add(caller, true);
       true;
     } else {
       false;
     };
   };
 
-  // Admin-only function to set/change global password
-  public shared ({ caller }) func setAdminPassword(newPassword : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can change the admin password");
+  // Shows if contributor role is unlocked
+  public query ({ caller }) func hasContributorAccess() : async Bool {
+    switch (contributorAccess.get(caller)) {
+      case (?hasAccess) { hasAccess };
+      case (null) { false };
     };
-    adminPassword := newPassword;
+  };
+
+  // Admin-only function to set/change global contributor password
+  public shared ({ caller }) func setContributorPassword(newPassword : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can change the contributor password");
+    };
+    contributorPassword := newPassword;
+  };
+
+  // Expose total comparison of unique authenticated users
+  public query ({ caller }) func getTotalAuthenticatedUsers() : async Nat {
+    if (not (isContributor(caller))) {
+      Runtime.trap("Unauthorized: Only contributors can view authenticated user stats");
+    };
+    totalAuthenticatedUsers;
   };
 
   // User Profile Management
@@ -158,6 +183,11 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can save profiles");
     };
+
+    if (not (userProfiles.containsKey(caller))) {
+      totalAuthenticatedUsers += 1;
+    };
+
     userProfiles.add(caller, profile);
 
     // Update display name in user stats if exists
@@ -176,10 +206,10 @@ actor {
     };
   };
 
-  // Chapters Management (Admin only)
+  // Chapters Management
   public shared ({ caller }) func createChapter(subject : Subject, title : Text, description : Text) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can create chapters");
+    if (not isContributor(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Only contributors can create chapters");
     };
 
     let chapter : Chapter = {
@@ -195,9 +225,10 @@ actor {
     currentId;
   };
 
+  // Allow contributors to update chapter metadata (but not create/delete)
   public shared ({ caller }) func updateChapter(id : Nat, title : Text, description : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can update chapters");
+    if (not (isContributor(caller))) {
+      Runtime.trap("Unauthorized: Only contributors can update chapters");
     };
 
     switch (chapters.get(id)) {
@@ -233,7 +264,7 @@ actor {
     chapters.values().toArray().filter(func(c) { c.subject == subject }).sort();
   };
 
-  // Questions Management (Admin only)
+  // Contributor only Questions Management
   public shared ({ caller }) func createQuestion(
     subject : Subject,
     chapterId : Nat,
@@ -244,9 +275,10 @@ actor {
     optionD : Text,
     correctOption : Text,
     explanation : Text,
+    category : Category,
   ) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can create questions");
+    if (not isContributor(caller)) {
+      Runtime.trap("Unauthorized: Only contributors can create questions");
     };
 
     let question : Question = {
@@ -260,6 +292,7 @@ actor {
       optionD;
       correctOption;
       explanation;
+      category;
       createdAt = Time.now();
     };
     questions.add(nextQuestionId, question);
@@ -277,9 +310,10 @@ actor {
     optionD : Text,
     correctOption : Text,
     explanation : Text,
+    category : Category,
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can update questions");
+    if (not isContributor(caller)) {
+      Runtime.trap("Unauthorized: Only contributors can update questions");
     };
 
     switch (questions.get(id)) {
@@ -295,6 +329,7 @@ actor {
           optionD;
           correctOption;
           explanation;
+          category;
           createdAt = question.createdAt;
         };
         questions.add(id, updatedQuestion);
@@ -438,6 +473,13 @@ actor {
         };
       };
       case (?stats) { stats };
+    };
+  };
+
+  func isContributor(caller : Principal) : Bool {
+    switch (contributorAccess.get(caller)) {
+      case (?hasAccess) { hasAccess };
+      case (null) { false };
     };
   };
 };

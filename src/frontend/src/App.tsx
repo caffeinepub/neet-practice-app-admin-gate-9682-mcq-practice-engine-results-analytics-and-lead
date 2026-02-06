@@ -7,7 +7,7 @@ import ChapterSelectPage from './pages/ChapterSelectPage';
 import PracticePage from './pages/PracticePage';
 import ResultsPage from './pages/ResultsPage';
 import RankingsPage from './pages/RankingsPage';
-import AdminPage from './pages/AdminPage';
+import ContributorPage from './pages/ContributorPage';
 import AppShell from './components/layout/AppShell';
 import ProfileSetupCard from './components/auth/ProfileSetupCard';
 import GlobalErrorBoundary from './components/errors/GlobalErrorBoundary';
@@ -62,10 +62,10 @@ const rankingsRoute = createRoute({
   component: RankingsPage,
 });
 
-const adminRoute = createRoute({
+const contributorRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/admin',
-  component: AdminPage,
+  path: '/contributor',
+  component: ContributorPage,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -75,7 +75,7 @@ const routeTree = rootRoute.addChildren([
   practiceRoute,
   resultsRoute,
   rankingsRoute,
-  adminRoute,
+  contributorRoute,
 ]);
 
 const router = createRouter({ routeTree });

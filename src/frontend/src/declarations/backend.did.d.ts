@@ -10,6 +10,9 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export type Category = { 'level1' : null } |
+  { 'neetPYQ' : null } |
+  { 'jeePYQ' : null };
 export interface Chapter {
   'id' : bigint,
   'title' : string,
@@ -25,6 +28,7 @@ export interface Question {
   'createdAt' : bigint,
   'chapterId' : bigint,
   'questionText' : string,
+  'category' : Category,
   'optionA' : string,
   'optionB' : string,
   'optionC' : string,
@@ -55,7 +59,18 @@ export interface _SERVICE {
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createChapter' : ActorMethod<[Subject, string, string], bigint>,
   'createQuestion' : ActorMethod<
-    [Subject, bigint, string, string, string, string, string, string, string],
+    [
+      Subject,
+      bigint,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      Category,
+    ],
     bigint
   >,
   'deleteChapter' : ActorMethod<[bigint], undefined>,
@@ -66,21 +81,23 @@ export interface _SERVICE {
   'getChaptersBySubject' : ActorMethod<[Subject], Array<Chapter>>,
   'getLeaderboard' : ActorMethod<[], Array<UserStats>>,
   'getQuestionsForChapter' : ActorMethod<[bigint], Array<Question>>,
+  'getTotalAuthenticatedUsers' : ActorMethod<[], bigint>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'getUserStats' : ActorMethod<[Principal], UserStats>,
+  'hasContributorAccess' : ActorMethod<[], boolean>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'listChapters' : ActorMethod<[], Array<Chapter>>,
   'listQuestions' : ActorMethod<[], Array<Question>>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
-  'setAdminPassword' : ActorMethod<[string], undefined>,
+  'setContributorPassword' : ActorMethod<[string], undefined>,
   'submitTestResult' : ActorMethod<
     [Subject, bigint, Array<QuestionAttempt>],
     bigint
   >,
-  'unlockAdminMode' : ActorMethod<[string], boolean>,
+  'unlockContributorMode' : ActorMethod<[string], boolean>,
   'updateChapter' : ActorMethod<[bigint, string, string], undefined>,
   'updateQuestion' : ActorMethod<
-    [bigint, string, string, string, string, string, string, string],
+    [bigint, string, string, string, string, string, string, string, Category],
     undefined
   >,
 }

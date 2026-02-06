@@ -24,6 +24,7 @@ export interface Question {
     createdAt: bigint;
     chapterId: bigint;
     questionText: string;
+    category: Category;
     optionA: string;
     optionB: string;
     optionC: string;
@@ -43,6 +44,11 @@ export interface UserStats {
     joinedAt: bigint;
     correctAnswers: bigint;
 }
+export enum Category {
+    level1 = "level1",
+    neetPYQ = "neetPYQ",
+    jeePYQ = "jeePYQ"
+}
 export enum Subject {
     biology = "biology",
     chemistry = "chemistry",
@@ -56,7 +62,7 @@ export enum UserRole {
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createChapter(subject: Subject, title: string, description: string): Promise<bigint>;
-    createQuestion(subject: Subject, chapterId: bigint, questionText: string, optionA: string, optionB: string, optionC: string, optionD: string, correctOption: string, explanation: string): Promise<bigint>;
+    createQuestion(subject: Subject, chapterId: bigint, questionText: string, optionA: string, optionB: string, optionC: string, optionD: string, correctOption: string, explanation: string, category: Category): Promise<bigint>;
     deleteChapter(id: bigint): Promise<void>;
     deleteQuestion(id: bigint): Promise<void>;
     getCallerStats(): Promise<UserStats>;
@@ -65,15 +71,17 @@ export interface backendInterface {
     getChaptersBySubject(subject: Subject): Promise<Array<Chapter>>;
     getLeaderboard(): Promise<Array<UserStats>>;
     getQuestionsForChapter(chapterId: bigint): Promise<Array<Question>>;
+    getTotalAuthenticatedUsers(): Promise<bigint>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     getUserStats(principal: Principal): Promise<UserStats>;
+    hasContributorAccess(): Promise<boolean>;
     isCallerAdmin(): Promise<boolean>;
     listChapters(): Promise<Array<Chapter>>;
     listQuestions(): Promise<Array<Question>>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    setAdminPassword(newPassword: string): Promise<void>;
+    setContributorPassword(newPassword: string): Promise<void>;
     submitTestResult(subject: Subject, chapterId: bigint, attempts: Array<QuestionAttempt>): Promise<bigint>;
-    unlockAdminMode(password: string): Promise<boolean>;
+    unlockContributorMode(password: string): Promise<boolean>;
     updateChapter(id: bigint, title: string, description: string): Promise<void>;
-    updateQuestion(id: bigint, questionText: string, optionA: string, optionB: string, optionC: string, optionD: string, correctOption: string, explanation: string): Promise<void>;
+    updateQuestion(id: bigint, questionText: string, optionA: string, optionB: string, optionC: string, optionD: string, correctOption: string, explanation: string, category: Category): Promise<void>;
 }

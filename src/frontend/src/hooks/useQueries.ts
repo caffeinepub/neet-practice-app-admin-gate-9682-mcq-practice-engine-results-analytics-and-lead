@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
 import { useInternetIdentity } from './useInternetIdentity';
-import type { UserProfile, Chapter, Question, QuestionAttempt, UserStats, Subject } from '../backend';
+import type { UserProfile, Chapter, Question, QuestionAttempt, UserStats, Subject, Category } from '../backend';
 
 // User Profile
 export function useGetCallerUserProfile() {
@@ -55,7 +55,7 @@ export function useGetChaptersBySubject(subject: Subject | null) {
   });
 }
 
-export function useListChapters() {
+export function useListChapters(hasContributorAccess?: boolean) {
   const { actor, isFetching: actorFetching } = useActor();
 
   return useQuery<Chapter[]>({
@@ -64,7 +64,7 @@ export function useListChapters() {
       if (!actor) return [];
       return actor.listChapters();
     },
-    enabled: !!actor && !actorFetching,
+    enabled: !!actor && !actorFetching && (hasContributorAccess === undefined || hasContributorAccess === true),
   });
 }
 
@@ -128,7 +128,7 @@ export function useGetQuestionsForChapter(chapterId: bigint | null) {
   });
 }
 
-export function useListQuestions() {
+export function useListQuestions(hasContributorAccess?: boolean) {
   const { actor, isFetching: actorFetching } = useActor();
 
   return useQuery<Question[]>({
@@ -137,7 +137,7 @@ export function useListQuestions() {
       if (!actor) return [];
       return actor.listQuestions();
     },
-    enabled: !!actor && !actorFetching,
+    enabled: !!actor && !actorFetching && (hasContributorAccess === undefined || hasContributorAccess === true),
   });
 }
 
@@ -156,6 +156,7 @@ export function useCreateQuestion() {
       optionD: string;
       correctOption: string;
       explanation: string;
+      category: Category;
     }) => {
       if (!actor) throw new Error('Actor not available');
       return actor.createQuestion(
@@ -167,7 +168,8 @@ export function useCreateQuestion() {
         params.optionC,
         params.optionD,
         params.correctOption,
-        params.explanation
+        params.explanation,
+        params.category
       );
     },
     onSuccess: () => {
@@ -190,6 +192,7 @@ export function useUpdateQuestion() {
       optionD: string;
       correctOption: string;
       explanation: string;
+      category: Category;
     }) => {
       if (!actor) throw new Error('Actor not available');
       return actor.updateQuestion(
@@ -200,7 +203,8 @@ export function useUpdateQuestion() {
         params.optionC,
         params.optionD,
         params.correctOption,
-        params.explanation
+        params.explanation,
+        params.category
       );
     },
     onSuccess: () => {
@@ -271,6 +275,20 @@ export function useGetLeaderboard() {
     queryFn: async () => {
       if (!actor) return [];
       return actor.getLeaderboard();
+    },
+    enabled: !!actor && !actorFetching,
+  });
+}
+
+// Contributor Analytics
+export function useGetTotalAuthenticatedUsers() {
+  const { actor, isFetching: actorFetching } = useActor();
+
+  return useQuery<bigint>({
+    queryKey: ['totalAuthenticatedUsers'],
+    queryFn: async () => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.getTotalAuthenticatedUsers();
     },
     enabled: !!actor && !actorFetching,
   });

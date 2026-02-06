@@ -1,11 +1,11 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useInternetIdentity } from '../../hooks/useInternetIdentity';
-import { useIsCallerAdmin } from '../../hooks/useAuthz';
 import LoginButton from '../auth/LoginButton';
 import { Button } from '@/components/ui/button';
-import { Home, Trophy, Shield, Menu } from 'lucide-react';
+import { Home, Trophy, UserPlus, Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { LIVE_DISPLAY_NAME, getLiveNameWarning } from '../../config/liveDeployment';
 
 interface AppShellProps {
   children: ReactNode;
@@ -14,16 +14,23 @@ interface AppShellProps {
 export default function AppShell({ children }: AppShellProps) {
   const navigate = useNavigate();
   const { identity } = useInternetIdentity();
-  const { data: isAdmin } = useIsCallerAdmin();
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
 
   const isAuthenticated = !!identity;
 
+  // Validate Live deployment name on mount (non-blocking)
+  useEffect(() => {
+    const warning = getLiveNameWarning();
+    if (warning) {
+      console.warn(warning);
+    }
+  }, []);
+
   const navItems = [
     { label: 'Home', icon: Home, path: '/', show: true },
     { label: 'Rankings', icon: Trophy, path: '/rankings', show: true },
-    { label: 'Admin', icon: Shield, path: '/admin', show: isAuthenticated && isAdmin },
+    { label: 'Contributor', icon: UserPlus, path: '/contributor', show: isAuthenticated },
   ];
 
   const NavLinks = () => (
@@ -59,9 +66,9 @@ export default function AppShell({ children }: AppShellProps) {
               className="flex items-center gap-2 font-bold text-lg hover:opacity-80 transition-opacity"
             >
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold">
-                N
+                L
               </div>
-              <span className="hidden sm:inline">NEET Practice</span>
+              <span className="hidden sm:inline">LearningXHub</span>
             </button>
           </div>
 
@@ -78,7 +85,14 @@ export default function AppShell({ children }: AppShellProps) {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right">
-                <nav className="flex flex-col gap-4 mt-8">
+                <div className="mb-6">
+                  <img
+                    src="/assets/generated/drawer-banner.dim_1200x400.png"
+                    alt="LearningXHub by RAHIL & MEHRAN"
+                    className="w-full h-auto rounded-lg"
+                  />
+                </div>
+                <nav className="flex flex-col gap-4">
                   <NavLinks />
                 </nav>
               </SheetContent>

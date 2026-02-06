@@ -1,31 +1,37 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Frontend: Immediate Admin Mode transition after successful unlock",
+  "title": "Frontend readiness for Live deployment branding and validation",
   "requirements": [
     {
-      "id": "REQ-21",
-      "summary": "Ensure Admin unlock updates UI state immediately (AdminPage gate -> panel and header Admin link appears) and show clear English invalid-password errors without needing a refresh.",
+      "id": "REQ-38",
+      "summary": "Prepare the frontend to support a permanent Live deployment by centralizing a valid Live name, validating it against constraints, and ensuring the Live URL renders the Home page cleanly.",
       "acceptanceCriteria": [
-        "After entering \"9682\" and seeing a success confirmation, the Admin page renders the admin panel in the same session without a reload.",
-        "After successful unlock, the header navigation shows the Admin button/link for the authenticated user.",
-        "If the password is incorrect, the user sees an English error message indicating the password is invalid and remains on the gate screen."
+        "A valid Live name is used that is 5–50 characters and contains only letters, numbers, and hyphens (no spaces).",
+        "The app is pushed to Live (not left in Draft).",
+        "After publishing, the Live deployment remains available permanently (i.e., does not expire as Draft versions can).",
+        "The Live deployment URL loads the app successfully and renders the Home page."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/hooks/useAuthz.ts",
-          "operation": "modify",
-          "description": "Update the Admin unlock mutation to immediately reflect Admin Mode in the UI by optimistically updating React Query cache for admin status (and, if applicable, caller role) on successful unlock, then invalidating/refetching to confirm. This ensures AdminPage and AppShell react instantly without manual refresh. Use the authorization component’s role/admin status pattern for UI access control; verify the component's usage instructions before implementing."
+          "path": "frontend/src/config/liveDeployment.ts",
+          "operation": "create",
+          "description": "Add a single source of truth for the intended Live name (e.g., an exported constant) plus a small validator enforcing 5–50 chars and only letters/numbers/hyphens; expose a helper the UI can use to warn if misconfigured."
         },
         {
-          "path": "frontend/src/components/admin/AdminGateCard.tsx",
+          "path": "frontend/index.html",
           "operation": "modify",
-          "description": "Add visible, inline error feedback for invalid password attempts (in English) while keeping the user on the gate screen, and clear any prior error upon successful unlock. Ensure the success state triggers the immediate UI transition driven by cached admin status updates. Verify the component's usage instructions before implementing."
+          "description": "Update the document title to remove draft/internal references and align branding with the configured Live name so the Live deployment appears polished and permanent."
         },
         {
           "path": "frontend/src/components/layout/AppShell.tsx",
           "operation": "modify",
-          "description": "Ensure the Admin navigation item reacts immediately to changes in cached admin status (no refresh), including after a successful unlock in the same session. Verify the component's usage instructions before implementing."
+          "description": "Read the configured Live name from frontend/src/config/liveDeployment.ts and display it consistently in the header/branding area; add a non-blocking validation warning (English) in the footer or console when the Live name violates the required constraints."
+        },
+        {
+          "path": "frontend/src/pages/HomePage.tsx",
+          "operation": "modify",
+          "description": "Ensure the Home page hero/heading uses the centralized Live branding (from frontend/src/config/liveDeployment.ts) and remains the default route experience so the Live URL reliably renders the Home page."
         }
       ]
     }

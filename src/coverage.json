@@ -1,54 +1,44 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T18:59:42.272Z",
+  "generatedAt": "2026-02-06T21:53:14.896Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 3,
+    "total": 1,
     "implemented": 1,
     "items": [
       {
-        "id": "REQ-19",
-        "summary": "Update the backend global admin password so that entering password \"9682\" in the UI successfully unlocks Admin Mode for the caller principal.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
-      },
-      {
-        "id": "REQ-20",
-        "summary": "Add a conditional backend state migration so existing deployed canisters that still have the previous default admin password value are upgraded to use \"9682\" without requiring an existing admin principal.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
-      },
-      {
-        "id": "REQ-21",
-        "summary": "Ensure the frontend Admin Gate flow visibly transitions to Admin Mode immediately after a successful unlock (no manual refresh): the Admin page should switch from the password gate to the admin panel and the Admin navigation link should appear when the backend reports admin status.",
+        "id": "REQ-38",
+        "summary": "Publish the current deployed Draft version as a Live (permanent) deployment on the Internet Computer by renaming the project to a valid Live domain name and pushing it live.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/hooks/useAuthz.ts",
-          "frontend/src/components/admin/AdminGateCard.tsx",
-          "frontend/src/components/layout/AppShell.tsx"
+          "frontend/src/config/liveDeployment.ts",
+          "frontend/index.html",
+          "frontend/src/components/layout/AppShell.tsx",
+          "frontend/src/pages/HomePage.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/hooks/useAuthz.ts",
-          "frontend/src/components/admin/AdminGateCard.tsx"
+          "frontend/src/config/liveDeployment.ts",
+          "frontend/index.html",
+          "frontend/src/components/layout/AppShell.tsx",
+          "frontend/src/pages/HomePage.tsx"
         ]
       }
     ]
   },
   "changedFiles": [
     "backend/main.mo",
-    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/components/admin/AdminGateCard.tsx",
-    "frontend/src/hooks/useAuthz.ts",
+    "frontend/index.html",
+    "frontend/src/components/layout/AppShell.tsx",
+    "frontend/src/config/liveDeployment.ts",
+    "frontend/src/pages/HomePage.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

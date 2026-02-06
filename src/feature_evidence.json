@@ -2,11 +2,13 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-ensure-the-frontend-admin-gate-flow-visibly-transitions-to-admin-mode-immediately-after-a-successful-unlock-no-manual-refresh-the-admin-page-should-switch-from-the-password-gate-to-the-admin-panel-and-the-admin-navigation-link-should-appear-when-the-backend-reports-admin-status",
-      "featureTitle": "Ensure the frontend Admin Gate flow visibly transitions to Admin Mode immediately after a successful unlock (no manual refresh): the Admin page should switch from the password gate to the admin panel and the Admin navigation link should appear when the backend reports admin status.",
+      "featureId": "feature-publish-the-current-deployed-draft-version-as-a-live-permanent-deployment-on-the-internet-computer-by-renaming-the-project-to-a-valid-live-domain-name-and-pushing-it-live",
+      "featureTitle": "Publish the current deployed Draft version as a Live (permanent) deployment on the Internet Computer by renaming the project to a valid Live domain name and pushing it live.",
       "files": [
-        "frontend/src/components/admin/AdminGateCard.tsx",
-        "frontend/src/hooks/useAuthz.ts"
+        "frontend/index.html",
+        "frontend/src/components/layout/AppShell.tsx",
+        "frontend/src/config/liveDeployment.ts",
+        "frontend/src/pages/HomePage.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -17,7 +19,7 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-21"
+        "REQ-38"
       ],
       "confidence": "high"
     }

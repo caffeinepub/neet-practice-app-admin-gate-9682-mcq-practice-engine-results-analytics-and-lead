@@ -18,6 +18,11 @@ export const Subject = IDL.Variant({
   'chemistry' : IDL.Null,
   'physics' : IDL.Null,
 });
+export const Category = IDL.Variant({
+  'level1' : IDL.Null,
+  'neetPYQ' : IDL.Null,
+  'jeePYQ' : IDL.Null,
+});
 export const UserStats = IDL.Record({
   'averageTimePerQuestion' : IDL.Nat,
   'displayName' : IDL.Text,
@@ -41,6 +46,7 @@ export const Question = IDL.Record({
   'createdAt' : IDL.Int,
   'chapterId' : IDL.Nat,
   'questionText' : IDL.Text,
+  'category' : Category,
   'optionA' : IDL.Text,
   'optionB' : IDL.Text,
   'optionC' : IDL.Text,
@@ -68,6 +74,7 @@ export const idlService = IDL.Service({
         IDL.Text,
         IDL.Text,
         IDL.Text,
+        Category,
       ],
       [IDL.Nat],
       [],
@@ -84,23 +91,25 @@ export const idlService = IDL.Service({
       [IDL.Vec(Question)],
       ['query'],
     ),
+  'getTotalAuthenticatedUsers' : IDL.Func([], [IDL.Nat], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
   'getUserStats' : IDL.Func([IDL.Principal], [UserStats], ['query']),
+  'hasContributorAccess' : IDL.Func([], [IDL.Bool], ['query']),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'listChapters' : IDL.Func([], [IDL.Vec(Chapter)], ['query']),
   'listQuestions' : IDL.Func([], [IDL.Vec(Question)], ['query']),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
-  'setAdminPassword' : IDL.Func([IDL.Text], [], []),
+  'setContributorPassword' : IDL.Func([IDL.Text], [], []),
   'submitTestResult' : IDL.Func(
       [Subject, IDL.Nat, IDL.Vec(QuestionAttempt)],
       [IDL.Nat],
       [],
     ),
-  'unlockAdminMode' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'unlockContributorMode' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'updateChapter' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [], []),
   'updateQuestion' : IDL.Func(
       [
@@ -112,6 +121,7 @@ export const idlService = IDL.Service({
         IDL.Text,
         IDL.Text,
         IDL.Text,
+        Category,
       ],
       [],
       [],
@@ -130,6 +140,11 @@ export const idlFactory = ({ IDL }) => {
     'biology' : IDL.Null,
     'chemistry' : IDL.Null,
     'physics' : IDL.Null,
+  });
+  const Category = IDL.Variant({
+    'level1' : IDL.Null,
+    'neetPYQ' : IDL.Null,
+    'jeePYQ' : IDL.Null,
   });
   const UserStats = IDL.Record({
     'averageTimePerQuestion' : IDL.Nat,
@@ -154,6 +169,7 @@ export const idlFactory = ({ IDL }) => {
     'createdAt' : IDL.Int,
     'chapterId' : IDL.Nat,
     'questionText' : IDL.Text,
+    'category' : Category,
     'optionA' : IDL.Text,
     'optionB' : IDL.Text,
     'optionC' : IDL.Text,
@@ -181,6 +197,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Text,
           IDL.Text,
+          Category,
         ],
         [IDL.Nat],
         [],
@@ -197,23 +214,25 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(Question)],
         ['query'],
       ),
+    'getTotalAuthenticatedUsers' : IDL.Func([], [IDL.Nat], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
     'getUserStats' : IDL.Func([IDL.Principal], [UserStats], ['query']),
+    'hasContributorAccess' : IDL.Func([], [IDL.Bool], ['query']),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'listChapters' : IDL.Func([], [IDL.Vec(Chapter)], ['query']),
     'listQuestions' : IDL.Func([], [IDL.Vec(Question)], ['query']),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
-    'setAdminPassword' : IDL.Func([IDL.Text], [], []),
+    'setContributorPassword' : IDL.Func([IDL.Text], [], []),
     'submitTestResult' : IDL.Func(
         [Subject, IDL.Nat, IDL.Vec(QuestionAttempt)],
         [IDL.Nat],
         [],
       ),
-    'unlockAdminMode' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'unlockContributorMode' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'updateChapter' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [], []),
     'updateQuestion' : IDL.Func(
         [
@@ -225,6 +244,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Text,
           IDL.Text,
+          Category,
         ],
         [],
         [],

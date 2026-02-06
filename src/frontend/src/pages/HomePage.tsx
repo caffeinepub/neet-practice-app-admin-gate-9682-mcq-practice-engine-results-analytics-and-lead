@@ -1,25 +1,26 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useIsCallerAdmin } from '../hooks/useAuthz';
+import { useHasContributorAccess } from '../hooks/useAuthz';
 import { useActor } from '../hooks/useActor';
 import MobilePage from '../components/layout/MobilePage';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { GraduationCap, Trophy, Shield, Loader2 } from 'lucide-react';
+import { GraduationCap, Trophy, UserPlus, Loader2 } from 'lucide-react';
+import { LIVE_DISPLAY_NAME } from '../config/liveDeployment';
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { identity } = useInternetIdentity();
   const { actor, isFetching: actorFetching } = useActor();
-  const { data: isAdmin, isLoading: adminLoading } = useIsCallerAdmin();
+  const { data: hasContributorAccess, isLoading: contributorLoading } = useHasContributorAccess();
 
   const isAuthenticated = !!identity;
   const isActorReady = !!actor && !actorFetching;
 
-  const handleAdminClick = () => {
+  const handleContributorClick = () => {
     if (!isActorReady) {
       return; // Prevent navigation while actor is initializing
     }
-    navigate({ to: '/admin' });
+    navigate({ to: '/contributor' });
   };
 
   return (
@@ -27,7 +28,7 @@ export default function HomePage() {
       <div className="space-y-8">
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            NEET Practice Hub
+            {LIVE_DISPLAY_NAME}
           </h1>
           <p className="text-muted-foreground">Master Physics, Chemistry & Biology</p>
         </div>
@@ -65,26 +66,26 @@ export default function HomePage() {
                 ? 'cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'
                 : 'opacity-60 cursor-not-allowed'
             }`}
-            onClick={handleAdminClick}
+            onClick={handleContributorClick}
           >
             <CardHeader>
               <div className="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center mb-2">
                 {!isActorReady ? (
                   <Loader2 className="w-6 h-6 text-warning animate-spin" />
                 ) : (
-                  <Shield className="w-6 h-6 text-warning" />
+                  <UserPlus className="w-6 h-6 text-warning" />
                 )}
               </div>
               <CardTitle className="flex items-center gap-2">
-                Admin Mode
-                {isAuthenticated && isAdmin && (
+                Contributor Mode
+                {isAuthenticated && hasContributorAccess && (
                   <span className="text-xs bg-success/20 text-success px-2 py-0.5 rounded-full">Active</span>
                 )}
               </CardTitle>
               <CardDescription>
                 {!isActorReady
                   ? 'Connecting to the canister...'
-                  : 'Manage chapters and questions (password required)'}
+                  : 'Add and edit questions (password required)'}
               </CardDescription>
             </CardHeader>
           </Card>

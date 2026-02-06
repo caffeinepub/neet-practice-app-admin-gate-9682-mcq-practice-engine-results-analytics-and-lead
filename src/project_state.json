@@ -1,16 +1,23 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 9,
-  "summary": "Full-stack NEET practice web app for Physics/Chemistry/Biology with student practice mode and contributor/admin mode unlocked via global password (9682). Includes MCQ question engine with per-question timer, performance tracking (time per question, wrong answers with solutions), leaderboard/rankings, and persistent storage using Node/Express with MongoDB or PostgreSQL plus React/Next.js + Tailwind frontend.",
+  "projectStateVersion": 21,
+  "summary": "Full-stack NEET practice web app for Physics/Chemistry/Biology with student practice mode plus a password-gated student contributor flow: students who know the global password can add questions (and edit only their own questions). Includes MCQ question engine with per-question timer, performance tracking (time per question, wrong answers with solutions), leaderboard/rankings, and persistent storage using Node/Express with MongoDB or PostgreSQL plus React/Next.js + Tailwind frontend.",
   "architectural_notes": [
     "Tech stack target: Node.js/Express backend; React.js or Next.js frontend with Tailwind CSS; DB: MongoDB or PostgreSQL",
-    "Global admin/contributor access is unlocked via a shared password (9682)"
+    "Global admin/contributor access is unlocked via a shared password (9682)",
+    "Entering global password 9682 should directly grant admin status to the caller principal (self-service admin unlock), without requiring any existing admin to assign roles.",
+    "Replace Admin role/UI with a password-gated Student Contributor capability; authorization should be based on knowing the global password + question ownership (only the creator can edit/delete their questions).",
+    "Contributor mode requirements expanded to include subject-scoped chapter editing (in addition to question add/edit).",
+    "Questions should support a category/tag field for: Level 1, NEET PYQ, JEE PYQ.",
+    "Track and expose a metric for total unique student logins (definition needed: unique users vs total sessions).",
+    "Contributor mode scope change: unlocked Student Contributors should be able to create/add chapters under a selected subject (in addition to adding questions within chapters)."
   ],
   "known_issues": [
     "App renders blank/empty UI: no subjects, no questions, and no admin button visible.",
-    "Admin button is visible, but entering correct password (9682) fails to open admin mode and shows error: \"actor not available\"."
+    "Admin button is visible, but entering correct password (9682) fails to open admin mode and shows error: \"actor not available\".",
+    "Admin unlock/role assignment still fails with error: \"Unauthorized: Only admins can assign user roles\" even after entering password 9682 (self-service admin escalation not working)."
   ],
-  "isFixRequest": true,
+  "isFixRequest": false,
   "existing_features": [
     {
       "id": "feature-frontend-create-an-app-wide-mobile-first-ui-theme-with-a-coherent-visual-style-colors-typography-spacing-components-applied-consistently-across-pages-avoid-a-blue-purple-primary-palette",
@@ -115,15 +122,89 @@
         "REQ-21"
       ],
       "version": 1
+    },
+    {
+      "id": "feature-ensure-the-frontend-admin-page-and-admin-gate-reliably-reflect-the-backend-admin-unlock-result-after-entering-password-9682-and-receiving-success-the-ui-must-immediately-transition-to-the-admin-panel-and-allow-adding-editing-chapters-and-questions-with-clear-error-text-if-unlock-fails",
+      "title": "Ensure the frontend Admin page and Admin gate reliably reflect the backend admin unlock result: after entering password 9682 and receiving success, the UI must immediately transition to the Admin Panel and allow adding/editing chapters and questions, with clear error text if unlock fails.",
+      "reqIds": [
+        "REQ-25"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-remove-all-admin-mode-entry-points-from-the-ui-and-replace-them-with-a-student-contributor-option-that-is-available-to-logged-in-students-where-access-is-unlocked-by-entering-the-shared-password",
+      "title": "Remove all Admin-mode entry points from the UI and replace them with a Student Contributor option that is available to logged-in students, where access is unlocked by entering the shared password.",
+      "reqIds": [
+        "REQ-26"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-password-gated-contributor-unlock-flow-replacing-admin-unlock-so-that-only-users-who-know-the-password-can-add-or-edit-questions",
+      "title": "Implement a password-gated Contributor unlock flow (replacing Admin unlock) so that only users who know the password can add or edit questions.",
+      "reqIds": [
+        "REQ-27"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-replace-the-current-admin-page-with-a-contributor-page-focused-on-adding-and-editing-questions-and-remove-chapter-management-controls-from-the-student-facing-contributor-ui",
+      "title": "Replace the current Admin page with a Contributor page focused on adding and editing questions (and remove chapter-management controls from the student-facing contributor UI).",
+      "reqIds": [
+        "REQ-29"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-question-category-field-supporting-exactly-these-values-level-1-neet-pyq-and-jee-pyq-persist-it-on-the-backend-question-model-and-require-it-when-creating-or-updating-a-question",
+      "title": "Add a question category field supporting exactly these values: \"Level 1\", \"NEET PYQ\", and \"JEE PYQ\"; persist it on the backend Question model; and require it when creating or updating a question.",
+      "reqIds": [
+        "REQ-31"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-extend-the-contributor-page-ui-to-allow-a-contributor-to-edit-chapters-scoped-to-the-currently-selected-subject-e-g-edit-title-description-of-chapters-shown-for-that-subject",
+      "title": "Extend the Contributor page UI to allow a contributor to edit chapters scoped to the currently selected subject (e.g., edit title/description of chapters shown for that subject).",
+      "reqIds": [
+        "REQ-32"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-track-and-expose-analytics-for-the-total-number-of-unique-students-who-have-ever-logged-in-authenticated-via-internet-identity-and-display-this-total-inside-contributor-mode",
+      "title": "Track and expose analytics for the total number of unique students who have ever logged in (authenticated via Internet Identity) and display this total inside Contributor mode.",
+      "reqIds": [
+        "REQ-33"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-banner-image-at-the-top-of-the-mobile-side-drawer-sheet-menu-that-appears-when-opening-the-side-menu-containing-the-text-learn-with-rahil-mehran",
+      "title": "Add a banner image at the top of the mobile side drawer (Sheet menu) that appears when opening the side menu, containing the text \"learn with RAHIL & MEHRAN\".",
+      "reqIds": [
+        "REQ-34"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-contributor-panel-ui-flow-to-create-a-new-chapter-within-the-currently-selected-subject-then-make-that-chapter-available-for-question-creation-in-the-same-contributor-panel-session",
+      "title": "Add a Contributor Panel UI flow to create a new chapter within the currently selected subject, then make that chapter available for question creation in the same Contributor Panel session.",
+      "reqIds": [
+        "REQ-37"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-publish-the-current-deployed-draft-version-as-a-live-permanent-deployment-on-the-internet-computer-by-renaming-the-project-to-a-valid-live-domain-name-and-pushing-it-live",
+      "title": "Publish the current deployed Draft version as a Live (permanent) deployment on the Internet Computer by renaming the project to a valid Live domain name and pushing it live.",
+      "reqIds": [
+        "REQ-38"
+      ],
+      "version": 1
     }
   ],
   "new_feature_requests": [
-    {
-      "id": "AR-1",
-      "summary": "Implement contributor/admin mode gated by a global password (9682) to add/edit questions and manage chapters",
-      "reqIds": [],
-      "status": "pending"
-    },
     {
       "id": "AR-2",
       "summary": "Implement student mode: select subject (Physics/Chemistry/Biology) and chapter to start practice session",
@@ -169,22 +250,6 @@
       "status": "pending"
     },
     {
-      "id": "AR-9",
-      "summary": "Create a global 'Contributor/Admin Mode' gate using the password '9682': add a backend API that verifies the password and, on success, marks the caller principal as a contributor/admin (persistently). Expose an API to query whether the caller is currently an admin.",
-      "reqIds": [
-        "REQ-2"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-10",
-      "summary": "Implement backend admin-only management APIs for chapters and questions: create/list/update/delete chapters and create/list/update/delete questions scoped by subject+chapter. Enforce authorization so only admin principals can mutate chapters/questions.",
-      "reqIds": [
-        "REQ-3"
-      ],
-      "status": "pending"
-    },
-    {
       "id": "AR-11",
       "summary": "Implement backend practice session workflow APIs: start a practice session for a selected subject+chapter, serve questions (MCQ), accept answers with time spent per question, and finalize to produce a TestResult that includes per-question timing, correctness, and solutions for review.",
       "reqIds": [
@@ -201,26 +266,70 @@
       "status": "pending"
     },
     {
-      "id": "AR-13",
-      "summary": "Add an explicit backend API for unlocking Admin Mode using the global password so the frontend does not depend on internal actor identity fields or ambiguous authorization-mixin method signatures.",
+      "id": "AR-19",
+      "summary": "Remove web Admin mode; add a password-gated Student Contributor option where students who know the password can add questions and can edit/delete only the questions they created (question ownership enforcement)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-22",
+      "summary": "Change authorization rules so that question creation and question editing are permitted for unlocked Contributors, and disallowed for users who have not unlocked Contributor mode.",
       "reqIds": [
-        "REQ-16"
+        "REQ-28"
       ],
       "status": "pending"
     },
     {
-      "id": "AR-14",
-      "summary": "Update the backend global admin password so that entering password \"9682\" in the UI successfully unlocks Admin Mode for the caller principal.",
+      "id": "AR-23",
+      "summary": "In Contributor mode (password-unlocked), allow students to edit chapters within a selected subject (chapter management scoped by subject)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-24",
+      "summary": "Add question categorization in Contributor mode so questions can be added under each chapter as: Level 1, NEET PYQ, JEE PYQ",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-25",
+      "summary": "In Contributor mode, display analytics: total number of students who have logged in to the web app",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-26",
+      "summary": "Add an opening/splash/side image/banner that displays the text \"learn with RAHIL & MEHRAN\"",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-27",
+      "summary": "Update backend authorization so that password-unlocked Contributors can update chapter metadata (title/description) for chapters within the selected subject, while keeping chapter creation and deletion restricted to Admins.",
       "reqIds": [
-        "REQ-19"
+        "REQ-30"
       ],
       "status": "pending"
     },
     {
-      "id": "AR-15",
-      "summary": "Add a conditional backend state migration so existing deployed canisters that still have the previous default admin password value are upgraded to use \"9682\" without requiring an existing admin principal.",
+      "id": "AR-32",
+      "summary": "Add a conditional data migration to preserve existing canister state while upgrading to the new backend schema (question category and total logged-in students analytics).",
       "reqIds": [
-        "REQ-20"
+        "REQ-35"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-33",
+      "summary": "Allow password-unlocked Student Contributors to create/add new chapters within a selected subject, then add questions under those chapters",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-34",
+      "summary": "Update the backend chapter-creation authorization so that a password-unlocked Contributor (not only an Admin) can create a new chapter under a specific subject (Physics/Chemistry/Biology).",
+      "reqIds": [
+        "REQ-36"
       ],
       "status": "pending"
     }
