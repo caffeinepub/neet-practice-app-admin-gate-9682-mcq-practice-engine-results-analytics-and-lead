@@ -42,7 +42,7 @@ export default function ChapterSelectPage() {
                 className="hover:shadow-lg transition-shadow cursor-pointer"
                 onClick={() =>
                   navigate({
-                    to: '/practice/$subject/$chapterId',
+                    to: '/chapter/$subject/$chapterId/category',
                     params: { subject: subject as Subject, chapterId: chapter.id.toString() },
                   })
                 }
@@ -59,7 +59,7 @@ export default function ChapterSelectPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <Button className="w-full">Start Practice</Button>
+                  <Button className="w-full">Select Chapter</Button>
                 </CardContent>
               </Card>
             ))}

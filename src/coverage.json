@@ -1,44 +1,89 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T21:53:14.896Z",
+  "generatedAt": "2026-02-08T08:06:03.307Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 1,
-    "implemented": 1,
+    "total": 4,
+    "implemented": 3,
     "items": [
       {
-        "id": "REQ-38",
-        "summary": "Publish the current deployed Draft version as a Live (permanent) deployment on the Internet Computer by renaming the project to a valid Live domain name and pushing it live.",
+        "id": "REQ-1",
+        "summary": "Update the Practice page so students can jump to any question by clicking on a visible list/grid of question numbers (a question navigator), instead of only typing a number.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/config/liveDeployment.ts",
-          "frontend/index.html",
-          "frontend/src/components/layout/AppShell.tsx",
-          "frontend/src/pages/HomePage.tsx"
+          "frontend/src/components/practice/QuestionNavigator.tsx",
+          "frontend/src/pages/PracticePage.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/config/liveDeployment.ts",
-          "frontend/index.html",
-          "frontend/src/components/layout/AppShell.tsx",
-          "frontend/src/pages/HomePage.tsx"
+          "frontend/src/components/practice/QuestionNavigator.tsx",
+          "frontend/src/pages/PracticePage.tsx"
         ]
+      },
+      {
+        "id": "REQ-2",
+        "summary": "Ensure practice resume behavior reliably restores the student to the same question/slide they last viewed when they exit and later return to the same (subject, chapter, category), for both anonymous and authenticated users.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/utils/practiceProgressStorage.ts",
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/pages/PracticePage.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/utils/practiceProgressStorage.ts",
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/pages/PracticePage.tsx"
+        ]
+      },
+      {
+        "id": "REQ-3",
+        "summary": "Add support for year-wise PYQ organization for NEET PYQ and JEE PYQ questions from year 2025 down to 2000, including backend data modeling and frontend year selection before starting PYQ practice.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/practice/YearSelectDialog.tsx",
+          "frontend/src/pages/ChapterCategorySelectPage.tsx",
+          "frontend/src/pages/PracticePage.tsx",
+          "frontend/src/hooks/useQueries.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/practice/YearSelectDialog.tsx",
+          "frontend/src/pages/ChapterCategorySelectPage.tsx",
+          "frontend/src/pages/PracticePage.tsx",
+          "frontend/src/hooks/useQueries.ts"
+        ]
+      },
+      {
+        "id": "REQ-4",
+        "summary": "Populate the app with NEET-syllabus-based chapters for Physics, Chemistry, and Biology, and populate the NEET/JEE PYQ banks with year-tagged questions for years 2025–2000.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       }
     ]
   },
   "changedFiles": [
     "backend/main.mo",
+    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/index.html",
-    "frontend/src/components/layout/AppShell.tsx",
-    "frontend/src/config/liveDeployment.ts",
-    "frontend/src/pages/HomePage.tsx",
+    "frontend/src/App.tsx",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/components/contributor/ContributorGateCard.tsx",
+    "frontend/src/components/practice/QuestionNavigator.tsx",
+    "frontend/src/components/practice/YearSelectDialog.tsx",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useAuthz.ts",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/ChapterCategorySelectPage.tsx",
+    "frontend/src/pages/PracticePage.tsx",
+    "frontend/src/utils/practiceProgressStorage.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

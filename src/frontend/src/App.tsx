@@ -4,6 +4,7 @@ import { useGetCallerUserProfile } from './hooks/useQueries';
 import HomePage from './pages/HomePage';
 import SubjectSelectPage from './pages/SubjectSelectPage';
 import ChapterSelectPage from './pages/ChapterSelectPage';
+import ChapterCategorySelectPage from './pages/ChapterCategorySelectPage';
 import PracticePage from './pages/PracticePage';
 import ResultsPage from './pages/ResultsPage';
 import RankingsPage from './pages/RankingsPage';
@@ -44,10 +45,21 @@ const chapterSelectRoute = createRoute({
   component: ChapterSelectPage,
 });
 
+const chapterCategorySelectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/chapter/$subject/$chapterId/category',
+  component: ChapterCategorySelectPage,
+});
+
 const practiceRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/practice/$subject/$chapterId',
+  path: '/practice/$subject/$chapterId/$category',
   component: PracticePage,
+  validateSearch: (search: Record<string, unknown>): { year?: number } => {
+    return {
+      year: typeof search.year === 'number' ? search.year : undefined,
+    };
+  },
 });
 
 const resultsRoute = createRoute({
@@ -72,6 +84,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   subjectSelectRoute,
   chapterSelectRoute,
+  chapterCategorySelectRoute,
   practiceRoute,
   resultsRoute,
   rankingsRoute,

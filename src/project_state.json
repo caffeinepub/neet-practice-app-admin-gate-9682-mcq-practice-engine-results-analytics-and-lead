@@ -1,341 +1,73 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 21,
-  "summary": "Full-stack NEET practice web app for Physics/Chemistry/Biology with student practice mode plus a password-gated student contributor flow: students who know the global password can add questions (and edit only their own questions). Includes MCQ question engine with per-question timer, performance tracking (time per question, wrong answers with solutions), leaderboard/rankings, and persistent storage using Node/Express with MongoDB or PostgreSQL plus React/Next.js + Tailwind frontend.",
+  "projectStateVersion": 3,
+  "summary": "Build a NEET/JEE practice (quiz) platform with syllabus-based chapter organization and year-wise PYQ question banks, including user-friendly question navigation and session resume.",
   "architectural_notes": [
-    "Tech stack target: Node.js/Express backend; React.js or Next.js frontend with Tailwind CSS; DB: MongoDB or PostgreSQL",
-    "Global admin/contributor access is unlocked via a shared password (9682)",
-    "Entering global password 9682 should directly grant admin status to the caller principal (self-service admin unlock), without requiring any existing admin to assign roles.",
-    "Replace Admin role/UI with a password-gated Student Contributor capability; authorization should be based on knowing the global password + question ownership (only the creator can edit/delete their questions).",
-    "Contributor mode requirements expanded to include subject-scoped chapter editing (in addition to question add/edit).",
-    "Questions should support a category/tag field for: Level 1, NEET PYQ, JEE PYQ.",
-    "Track and expose a metric for total unique student logins (definition needed: unique users vs total sessions).",
-    "Contributor mode scope change: unlocked Student Contributors should be able to create/add chapters under a selected subject (in addition to adding questions within chapters)."
+    "Store per-user attempt state (e.g., current question index/slide) to enable resume across sessions/devices."
   ],
-  "known_issues": [
-    "App renders blank/empty UI: no subjects, no questions, and no admin button visible.",
-    "Admin button is visible, but entering correct password (9682) fails to open admin mode and shows error: \"actor not available\".",
-    "Admin unlock/role assignment still fails with error: \"Unauthorized: Only admins can assign user roles\" even after entering password 9682 (self-service admin escalation not working)."
-  ],
+  "known_issues": [],
   "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-frontend-create-an-app-wide-mobile-first-ui-theme-with-a-coherent-visual-style-colors-typography-spacing-components-applied-consistently-across-pages-avoid-a-blue-purple-primary-palette",
-      "title": "Frontend: create an app-wide, mobile-first UI theme with a coherent visual style (colors, typography, spacing, components) applied consistently across pages. Avoid a blue/purple primary palette.",
+      "id": "feature-update-the-practice-page-so-students-can-jump-to-any-question-by-clicking-on-a-visible-list-grid-of-question-numbers-a-question-navigator-instead-of-only-typing-a-number",
+      "title": "Update the Practice page so students can jump to any question by clicking on a visible list/grid of question numbers (a question navigator), instead of only typing a number.",
       "reqIds": [
-        "REQ-6"
+        "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-frontend-implement-the-contributor-admin-gate-ui-a-password-entry-screen-button-that-submits-9682-or-another-entered-value-to-the-backend-to-unlock-admin-mode-for-the-current-identity-and-conditionally-reveals-admin-pages-actions-based-on-backend-reported-admin-status",
-      "title": "Frontend: implement the Contributor/Admin gate UI: a password entry screen/button that submits '9682' (or another entered value) to the backend to unlock Admin Mode for the current identity, and conditionally reveals Admin pages/actions based on backend-reported admin status.",
+      "id": "feature-ensure-practice-resume-behavior-reliably-restores-the-student-to-the-same-question-slide-they-last-viewed-when-they-exit-and-later-return-to-the-same-subject-chapter-category-for-both-anonymous-and-authenticated-users",
+      "title": "Ensure practice resume behavior reliably restores the student to the same question/slide they last viewed when they exit and later return to the same (subject, chapter, category), for both anonymous and authenticated users.",
       "reqIds": [
-        "REQ-7"
+        "REQ-2"
       ],
       "version": 1
     },
     {
-      "id": "feature-frontend-implement-student-mode-flow-screens-1-subject-selection-physics-chemistry-biology-2-chapter-selection-filtered-by-subject-and-3-start-practice-session",
-      "title": "Frontend: implement Student Mode flow screens: (1) subject selection (Physics/Chemistry/Biology), (2) chapter selection filtered by subject, and (3) start practice session.",
+      "id": "feature-add-support-for-year-wise-pyq-organization-for-neet-pyq-and-jee-pyq-questions-from-year-2025-down-to-2000-including-backend-data-modeling-and-frontend-year-selection-before-starting-pyq-practice",
+      "title": "Add support for year-wise PYQ organization for NEET PYQ and JEE PYQ questions from year 2025 down to 2000, including backend data modeling and frontend year selection before starting PYQ practice.",
       "reqIds": [
-        "REQ-8"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-frontend-build-the-mcq-practice-screen-ui-with-exactly-4-options-per-question-and-a-per-question-timer-capture-the-selected-option-and-the-time-spent-submit-to-backend-and-progress-through-the-session-until-completion",
-      "title": "Frontend: build the MCQ Practice screen UI with exactly 4 options per question and a per-question timer. Capture the selected option and the time spent, submit to backend, and progress through the session until completion.",
-      "reqIds": [
-        "REQ-9"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-frontend-implement-results-summary-screen-after-a-session-show-time-taken-per-question-total-score-accuracy-for-the-session-and-a-list-of-wrong-answers-that-includes-the-correct-option-and-the-solution-explanation-text",
-      "title": "Frontend: implement Results summary screen after a session: show time taken per question, total score/accuracy for the session, and a list of wrong answers that includes the correct option and the solution/explanation text.",
-      "reqIds": [
-        "REQ-10"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-frontend-implement-a-rankings-page-that-displays-the-leaderboard-rank-student-name-cumulative-accuracy-total-questions-solved-and-highlights-the-current-student-s-row-position-if-available",
-      "title": "Frontend: implement a Rankings page that displays the leaderboard (rank, student name, cumulative accuracy, total questions solved) and highlights the current student’s row/position if available.",
-      "reqIds": [
-        "REQ-11"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-frontend-backend-provide-an-in-repo-developer-facing-directory-structure-overview-and-api-surface-documentation-that-reflects-the-actual-generated-motoko-react-project-including-endpoints-methods-for-admin-unlock-chapters-questions-management-session-flow-results-and-leaderboard",
-      "title": "Frontend + Backend: provide an in-repo developer-facing directory structure overview and API surface documentation that reflects the actual generated Motoko + React project (including endpoints/methods for admin unlock, chapters/questions management, session flow, results, and leaderboard).",
-      "reqIds": [
-        "REQ-12"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-fix-tanstack-router-rendering-so-routed-pages-home-subject-admin-etc-reliably-render-inside-the-appshell-main-content-area-instead-of-a-blank-screen",
-      "title": "Fix TanStack Router rendering so routed pages (Home/Subject/Admin/etc.) reliably render inside the AppShell main content area, instead of a blank screen.",
-      "reqIds": [
-        "REQ-13"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-ensure-the-app-never-blocks-initial-rendering-behind-profile-fetching-when-the-user-is-not-authenticated-the-home-page-must-be-visible-to-anonymous-users-and-must-display-a-clear-login-prompt-instead-of-a-blank-screen",
-      "title": "Ensure the app never blocks initial rendering behind profile fetching when the user is not authenticated; the Home page must be visible to anonymous users and must display a clear login prompt instead of a blank screen.",
-      "reqIds": [
-        "REQ-14"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-add-a-global-user-friendly-fallback-ui-for-unexpected-frontend-errors-so-that-if-any-page-throws-router-queries-auth-the-user-sees-an-error-message-and-a-recovery-action-e-g-reload-rather-than-a-fully-blank-screen",
-      "title": "Add a global, user-friendly fallback UI for unexpected frontend errors so that if any page throws (router, queries, auth), the user sees an error message and a recovery action (e.g., \"Reload\"), rather than a fully blank screen.",
-      "reqIds": [
-        "REQ-15"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-fix-the-frontend-admin-unlock-flow-to-avoid-throwing-actor-not-available-and-to-use-the-new-backend-admin-unlock-api-end-to-end",
-      "title": "Fix the frontend admin unlock flow to avoid throwing \"Actor not available\" and to use the new backend admin-unlock API end-to-end.",
-      "reqIds": [
-        "REQ-17"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-harden-admin-gated-navigation-and-rendering-so-users-never-get-stuck-with-a-non-functional-admin-button-due-to-transient-actor-initialization",
-      "title": "Harden admin-gated navigation and rendering so users never get stuck with a non-functional Admin button due to transient actor initialization.",
-      "reqIds": [
-        "REQ-18"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-ensure-the-frontend-admin-gate-flow-visibly-transitions-to-admin-mode-immediately-after-a-successful-unlock-no-manual-refresh-the-admin-page-should-switch-from-the-password-gate-to-the-admin-panel-and-the-admin-navigation-link-should-appear-when-the-backend-reports-admin-status",
-      "title": "Ensure the frontend Admin Gate flow visibly transitions to Admin Mode immediately after a successful unlock (no manual refresh): the Admin page should switch from the password gate to the admin panel and the Admin navigation link should appear when the backend reports admin status.",
-      "reqIds": [
-        "REQ-21"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-ensure-the-frontend-admin-page-and-admin-gate-reliably-reflect-the-backend-admin-unlock-result-after-entering-password-9682-and-receiving-success-the-ui-must-immediately-transition-to-the-admin-panel-and-allow-adding-editing-chapters-and-questions-with-clear-error-text-if-unlock-fails",
-      "title": "Ensure the frontend Admin page and Admin gate reliably reflect the backend admin unlock result: after entering password 9682 and receiving success, the UI must immediately transition to the Admin Panel and allow adding/editing chapters and questions, with clear error text if unlock fails.",
-      "reqIds": [
-        "REQ-25"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-remove-all-admin-mode-entry-points-from-the-ui-and-replace-them-with-a-student-contributor-option-that-is-available-to-logged-in-students-where-access-is-unlocked-by-entering-the-shared-password",
-      "title": "Remove all Admin-mode entry points from the UI and replace them with a Student Contributor option that is available to logged-in students, where access is unlocked by entering the shared password.",
-      "reqIds": [
-        "REQ-26"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-implement-a-password-gated-contributor-unlock-flow-replacing-admin-unlock-so-that-only-users-who-know-the-password-can-add-or-edit-questions",
-      "title": "Implement a password-gated Contributor unlock flow (replacing Admin unlock) so that only users who know the password can add or edit questions.",
-      "reqIds": [
-        "REQ-27"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-replace-the-current-admin-page-with-a-contributor-page-focused-on-adding-and-editing-questions-and-remove-chapter-management-controls-from-the-student-facing-contributor-ui",
-      "title": "Replace the current Admin page with a Contributor page focused on adding and editing questions (and remove chapter-management controls from the student-facing contributor UI).",
-      "reqIds": [
-        "REQ-29"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-add-a-question-category-field-supporting-exactly-these-values-level-1-neet-pyq-and-jee-pyq-persist-it-on-the-backend-question-model-and-require-it-when-creating-or-updating-a-question",
-      "title": "Add a question category field supporting exactly these values: \"Level 1\", \"NEET PYQ\", and \"JEE PYQ\"; persist it on the backend Question model; and require it when creating or updating a question.",
-      "reqIds": [
-        "REQ-31"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-extend-the-contributor-page-ui-to-allow-a-contributor-to-edit-chapters-scoped-to-the-currently-selected-subject-e-g-edit-title-description-of-chapters-shown-for-that-subject",
-      "title": "Extend the Contributor page UI to allow a contributor to edit chapters scoped to the currently selected subject (e.g., edit title/description of chapters shown for that subject).",
-      "reqIds": [
-        "REQ-32"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-track-and-expose-analytics-for-the-total-number-of-unique-students-who-have-ever-logged-in-authenticated-via-internet-identity-and-display-this-total-inside-contributor-mode",
-      "title": "Track and expose analytics for the total number of unique students who have ever logged in (authenticated via Internet Identity) and display this total inside Contributor mode.",
-      "reqIds": [
-        "REQ-33"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-add-a-banner-image-at-the-top-of-the-mobile-side-drawer-sheet-menu-that-appears-when-opening-the-side-menu-containing-the-text-learn-with-rahil-mehran",
-      "title": "Add a banner image at the top of the mobile side drawer (Sheet menu) that appears when opening the side menu, containing the text \"learn with RAHIL & MEHRAN\".",
-      "reqIds": [
-        "REQ-34"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-add-a-contributor-panel-ui-flow-to-create-a-new-chapter-within-the-currently-selected-subject-then-make-that-chapter-available-for-question-creation-in-the-same-contributor-panel-session",
-      "title": "Add a Contributor Panel UI flow to create a new chapter within the currently selected subject, then make that chapter available for question creation in the same Contributor Panel session.",
-      "reqIds": [
-        "REQ-37"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-publish-the-current-deployed-draft-version-as-a-live-permanent-deployment-on-the-internet-computer-by-renaming-the-project-to-a-valid-live-domain-name-and-pushing-it-live",
-      "title": "Publish the current deployed Draft version as a Live (permanent) deployment on the Internet Computer by renaming the project to a valid Live domain name and pushing it live.",
-      "reqIds": [
-        "REQ-38"
+        "REQ-3"
       ],
       "version": 1
     }
   ],
   "new_feature_requests": [
     {
+      "id": "AR-1",
+      "summary": "Allow students to jump/skip to any question by clicking its question number (question navigator).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
       "id": "AR-2",
-      "summary": "Implement student mode: select subject (Physics/Chemistry/Biology) and chapter to start practice session",
+      "summary": "Persist quiz progress so if a student exits and returns later, they resume at the same question/slide where they left off.",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-3",
-      "summary": "Build MCQ question engine with 4 options and per-question timer",
+      "summary": "Add Physics, Chemistry, and Biology chapters based on the NEET syllabus.",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-4",
-      "summary": "Add performance tracking after tests: time per question, wrong answers list with correct solutions",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-5",
-      "summary": "Create leaderboard/rankings page based on cumulative accuracy and total questions solved (students can see each other’s rank)",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-6",
-      "summary": "Add persistent database storage and schema/models for User, Question, and TestResult (MongoDB or PostgreSQL)",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-7",
-      "summary": "Provide project directory structure plus API logic for password check and frontend UI for MCQ practice screen",
+      "summary": "Add a NEET/JEE PYQ section with questions organized year-wise from 2025 down to 2000 (populate using AI-assisted sourcing).",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-8",
-      "summary": "Implement persistent backend data models and storage in the single Motoko actor for: Subjects (Physics/Chemistry/Biology), Chapters (per subject), Questions (MCQ with 4 options, correct option, explanation/solution), Users (student display name + cumulative stats), and TestResults/Attempts (per-question chosen option + correctness + time taken).",
-      "reqIds": [
-        "REQ-1"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-11",
-      "summary": "Implement backend practice session workflow APIs: start a practice session for a selected subject+chapter, serve questions (MCQ), accept answers with time spent per question, and finalize to produce a TestResult that includes per-question timing, correctness, and solutions for review.",
+      "summary": "Populate the app with NEET-syllabus-based chapters for Physics, Chemistry, and Biology, and populate the NEET/JEE PYQ banks with year-tagged questions for years 2025–2000.",
       "reqIds": [
         "REQ-4"
       ],
       "status": "pending"
-    },
-    {
-      "id": "AR-12",
-      "summary": "Implement backend leaderboard/rankings computation and API: return a ranking list of students based on cumulative accuracy and total questions solved, and allow a student to see their own rank/position among others.",
-      "reqIds": [
-        "REQ-5"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-19",
-      "summary": "Remove web Admin mode; add a password-gated Student Contributor option where students who know the password can add questions and can edit/delete only the questions they created (question ownership enforcement)",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-22",
-      "summary": "Change authorization rules so that question creation and question editing are permitted for unlocked Contributors, and disallowed for users who have not unlocked Contributor mode.",
-      "reqIds": [
-        "REQ-28"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-23",
-      "summary": "In Contributor mode (password-unlocked), allow students to edit chapters within a selected subject (chapter management scoped by subject)",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-24",
-      "summary": "Add question categorization in Contributor mode so questions can be added under each chapter as: Level 1, NEET PYQ, JEE PYQ",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-25",
-      "summary": "In Contributor mode, display analytics: total number of students who have logged in to the web app",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-26",
-      "summary": "Add an opening/splash/side image/banner that displays the text \"learn with RAHIL & MEHRAN\"",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-27",
-      "summary": "Update backend authorization so that password-unlocked Contributors can update chapter metadata (title/description) for chapters within the selected subject, while keeping chapter creation and deletion restricted to Admins.",
-      "reqIds": [
-        "REQ-30"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-32",
-      "summary": "Add a conditional data migration to preserve existing canister state while upgrading to the new backend schema (question category and total logged-in students analytics).",
-      "reqIds": [
-        "REQ-35"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-33",
-      "summary": "Allow password-unlocked Student Contributors to create/add new chapters within a selected subject, then add questions under those chapters",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-34",
-      "summary": "Update the backend chapter-creation authorization so that a password-unlocked Contributor (not only an Admin) can create a new chapter under a specific subject (Physics/Chemistry/Biology).",
-      "reqIds": [
-        "REQ-36"
-      ],
-      "status": "pending"
     }
   ],
-  "gameProjectType": "none",
-  "projectName": "NEET Practice App: Admin gate (9682), MCQ practice engine, results analytics, and leaderboard with persistent Motoko storage",
+  "projectName": "Add clickable question navigator, resume practice position, and seed NEET syllabus chapters + year-wise PYQ (2025–2000)",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

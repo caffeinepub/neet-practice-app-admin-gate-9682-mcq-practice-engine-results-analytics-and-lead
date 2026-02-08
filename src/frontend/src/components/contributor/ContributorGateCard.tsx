@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useUnlockContributorMode } from '../../hooks/useAuthz';
 import { useActor } from '../../hooks/useActor';
 import { useInternetIdentity } from '../../hooks/useInternetIdentity';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,13 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { toast } from 'sonner';
-import { UserPlus, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { Lock, Loader2, AlertCircle, UserPlus } from 'lucide-react';
 
 export default function ContributorGateCard() {
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const unlockContributor = useUnlockContributorMode();
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
 
@@ -39,16 +36,9 @@ export default function ContributorGateCard() {
       return;
     }
 
-    try {
-      await unlockContributor.mutateAsync(password);
-      toast.success('Contributor access granted!');
-      setPassword('');
-      setErrorMessage('');
-    } catch (error: any) {
-      const message = error.message || 'Failed to unlock contributor mode';
-      setErrorMessage(message);
-      setPassword('');
-    }
+    // Backend method unlockContributorMode is not yet implemented
+    setErrorMessage('Contributor unlock functionality is not yet available. Please contact the administrator.');
+    setPassword('');
   };
 
   return (
@@ -100,7 +90,7 @@ export default function ContributorGateCard() {
                   setPassword(e.target.value);
                   setErrorMessage('');
                 }}
-                disabled={unlockContributor.isPending || !isActorReady || !isLoggedIn}
+                disabled={!isActorReady || !isLoggedIn}
                 className="pl-10"
                 autoFocus={isActorReady && isLoggedIn}
               />
@@ -109,7 +99,7 @@ export default function ContributorGateCard() {
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={unlockContributor.isPending || !isActorReady || !isLoggedIn}
+            disabled={!isActorReady || !isLoggedIn}
           >
             {!isLoggedIn ? (
               'Log in required'
@@ -117,11 +107,6 @@ export default function ContributorGateCard() {
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Connecting...
-              </>
-            ) : unlockContributor.isPending ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Verifying...
               </>
             ) : (
               'Unlock Contributor Mode'

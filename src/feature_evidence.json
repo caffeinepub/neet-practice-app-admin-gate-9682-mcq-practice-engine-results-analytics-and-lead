@@ -2,13 +2,11 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-publish-the-current-deployed-draft-version-as-a-live-permanent-deployment-on-the-internet-computer-by-renaming-the-project-to-a-valid-live-domain-name-and-pushing-it-live",
-      "featureTitle": "Publish the current deployed Draft version as a Live (permanent) deployment on the Internet Computer by renaming the project to a valid Live domain name and pushing it live.",
+      "featureId": "feature-update-the-practice-page-so-students-can-jump-to-any-question-by-clicking-on-a-visible-list-grid-of-question-numbers-a-question-navigator-instead-of-only-typing-a-number",
+      "featureTitle": "Update the Practice page so students can jump to any question by clicking on a visible list/grid of question numbers (a question navigator), instead of only typing a number.",
       "files": [
-        "frontend/index.html",
-        "frontend/src/components/layout/AppShell.tsx",
-        "frontend/src/config/liveDeployment.ts",
-        "frontend/src/pages/HomePage.tsx"
+        "frontend/src/components/practice/QuestionNavigator.tsx",
+        "frontend/src/pages/PracticePage.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -19,7 +17,50 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-38"
+        "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-ensure-practice-resume-behavior-reliably-restores-the-student-to-the-same-question-slide-they-last-viewed-when-they-exit-and-later-return-to-the-same-subject-chapter-category-for-both-anonymous-and-authenticated-users",
+      "featureTitle": "Ensure practice resume behavior reliably restores the student to the same question/slide they last viewed when they exit and later return to the same (subject, chapter, category), for both anonymous and authenticated users.",
+      "files": [
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/PracticePage.tsx",
+        "frontend/src/utils/practiceProgressStorage.ts"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-2"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-add-support-for-year-wise-pyq-organization-for-neet-pyq-and-jee-pyq-questions-from-year-2025-down-to-2000-including-backend-data-modeling-and-frontend-year-selection-before-starting-pyq-practice",
+      "featureTitle": "Add support for year-wise PYQ organization for NEET PYQ and JEE PYQ questions from year 2025 down to 2000, including backend data modeling and frontend year selection before starting PYQ practice.",
+      "files": [
+        "frontend/src/components/practice/YearSelectDialog.tsx",
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/ChapterCategorySelectPage.tsx",
+        "frontend/src/pages/PracticePage.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
       ],
       "confidence": "high"
     }

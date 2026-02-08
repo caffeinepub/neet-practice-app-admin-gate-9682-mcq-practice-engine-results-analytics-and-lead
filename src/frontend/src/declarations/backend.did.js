@@ -37,6 +37,17 @@ export const Chapter = IDL.Record({
   'subject' : Subject,
   'createdAt' : IDL.Int,
   'description' : IDL.Text,
+  'sequence' : IDL.Nat,
+});
+export const PracticeProgressKey = IDL.Record({
+  'subject' : Subject,
+  'year' : IDL.Opt(IDL.Nat),
+  'chapterId' : IDL.Nat,
+  'category' : Category,
+});
+export const PracticeProgress = IDL.Record({
+  'lastQuestionIndex' : IDL.Nat,
+  'discoveredQuestionIds' : IDL.Vec(IDL.Nat),
 });
 export const Question = IDL.Record({
   'id' : IDL.Nat,
@@ -44,6 +55,7 @@ export const Question = IDL.Record({
   'subject' : Subject,
   'explanation' : IDL.Text,
   'createdAt' : IDL.Int,
+  'year' : IDL.Opt(IDL.Nat),
   'chapterId' : IDL.Nat,
   'questionText' : IDL.Text,
   'category' : Category,
@@ -62,7 +74,11 @@ export const QuestionAttempt = IDL.Record({
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-  'createChapter' : IDL.Func([Subject, IDL.Text, IDL.Text], [IDL.Nat], []),
+  'createChapter' : IDL.Func(
+      [Subject, IDL.Text, IDL.Text, IDL.Nat],
+      [IDL.Nat],
+      [],
+    ),
   'createQuestion' : IDL.Func(
       [
         Subject,
@@ -75,6 +91,7 @@ export const idlService = IDL.Service({
         IDL.Text,
         IDL.Text,
         Category,
+        IDL.Opt(IDL.Nat),
       ],
       [IDL.Nat],
       [],
@@ -86,8 +103,23 @@ export const idlService = IDL.Service({
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getChaptersBySubject' : IDL.Func([Subject], [IDL.Vec(Chapter)], ['query']),
   'getLeaderboard' : IDL.Func([], [IDL.Vec(UserStats)], ['query']),
+  'getOrCreatePracticeProgress' : IDL.Func(
+      [PracticeProgressKey, IDL.Nat],
+      [IDL.Opt(PracticeProgress)],
+      [],
+    ),
+  'getPracticeProgress' : IDL.Func(
+      [PracticeProgressKey],
+      [IDL.Opt(PracticeProgress)],
+      ['query'],
+    ),
   'getQuestionsForChapter' : IDL.Func(
       [IDL.Nat],
+      [IDL.Vec(Question)],
+      ['query'],
+    ),
+  'getQuestionsForYear' : IDL.Func(
+      [IDL.Nat, Category],
       [IDL.Vec(Question)],
       ['query'],
     ),
@@ -103,14 +135,17 @@ export const idlService = IDL.Service({
   'listChapters' : IDL.Func([], [IDL.Vec(Chapter)], ['query']),
   'listQuestions' : IDL.Func([], [IDL.Vec(Question)], ['query']),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
-  'setContributorPassword' : IDL.Func([IDL.Text], [], []),
+  'savePracticeProgress' : IDL.Func(
+      [PracticeProgressKey, PracticeProgress],
+      [],
+      [],
+    ),
   'submitTestResult' : IDL.Func(
       [Subject, IDL.Nat, IDL.Vec(QuestionAttempt)],
       [IDL.Nat],
       [],
     ),
-  'unlockContributorMode' : IDL.Func([IDL.Text], [IDL.Bool], []),
-  'updateChapter' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [], []),
+  'updateChapter' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Nat], [], []),
   'updateQuestion' : IDL.Func(
       [
         IDL.Nat,
@@ -122,6 +157,7 @@ export const idlService = IDL.Service({
         IDL.Text,
         IDL.Text,
         Category,
+        IDL.Opt(IDL.Nat),
       ],
       [],
       [],
@@ -160,6 +196,17 @@ export const idlFactory = ({ IDL }) => {
     'subject' : Subject,
     'createdAt' : IDL.Int,
     'description' : IDL.Text,
+    'sequence' : IDL.Nat,
+  });
+  const PracticeProgressKey = IDL.Record({
+    'subject' : Subject,
+    'year' : IDL.Opt(IDL.Nat),
+    'chapterId' : IDL.Nat,
+    'category' : Category,
+  });
+  const PracticeProgress = IDL.Record({
+    'lastQuestionIndex' : IDL.Nat,
+    'discoveredQuestionIds' : IDL.Vec(IDL.Nat),
   });
   const Question = IDL.Record({
     'id' : IDL.Nat,
@@ -167,6 +214,7 @@ export const idlFactory = ({ IDL }) => {
     'subject' : Subject,
     'explanation' : IDL.Text,
     'createdAt' : IDL.Int,
+    'year' : IDL.Opt(IDL.Nat),
     'chapterId' : IDL.Nat,
     'questionText' : IDL.Text,
     'category' : Category,
@@ -185,7 +233,11 @@ export const idlFactory = ({ IDL }) => {
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-    'createChapter' : IDL.Func([Subject, IDL.Text, IDL.Text], [IDL.Nat], []),
+    'createChapter' : IDL.Func(
+        [Subject, IDL.Text, IDL.Text, IDL.Nat],
+        [IDL.Nat],
+        [],
+      ),
     'createQuestion' : IDL.Func(
         [
           Subject,
@@ -198,6 +250,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Text,
           Category,
+          IDL.Opt(IDL.Nat),
         ],
         [IDL.Nat],
         [],
@@ -209,8 +262,23 @@ export const idlFactory = ({ IDL }) => {
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getChaptersBySubject' : IDL.Func([Subject], [IDL.Vec(Chapter)], ['query']),
     'getLeaderboard' : IDL.Func([], [IDL.Vec(UserStats)], ['query']),
+    'getOrCreatePracticeProgress' : IDL.Func(
+        [PracticeProgressKey, IDL.Nat],
+        [IDL.Opt(PracticeProgress)],
+        [],
+      ),
+    'getPracticeProgress' : IDL.Func(
+        [PracticeProgressKey],
+        [IDL.Opt(PracticeProgress)],
+        ['query'],
+      ),
     'getQuestionsForChapter' : IDL.Func(
         [IDL.Nat],
+        [IDL.Vec(Question)],
+        ['query'],
+      ),
+    'getQuestionsForYear' : IDL.Func(
+        [IDL.Nat, Category],
         [IDL.Vec(Question)],
         ['query'],
       ),
@@ -226,14 +294,17 @@ export const idlFactory = ({ IDL }) => {
     'listChapters' : IDL.Func([], [IDL.Vec(Chapter)], ['query']),
     'listQuestions' : IDL.Func([], [IDL.Vec(Question)], ['query']),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
-    'setContributorPassword' : IDL.Func([IDL.Text], [], []),
+    'savePracticeProgress' : IDL.Func(
+        [PracticeProgressKey, PracticeProgress],
+        [],
+        [],
+      ),
     'submitTestResult' : IDL.Func(
         [Subject, IDL.Nat, IDL.Vec(QuestionAttempt)],
         [IDL.Nat],
         [],
       ),
-    'unlockContributorMode' : IDL.Func([IDL.Text], [IDL.Bool], []),
-    'updateChapter' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [], []),
+    'updateChapter' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Nat], [], []),
     'updateQuestion' : IDL.Func(
         [
           IDL.Nat,
@@ -245,6 +316,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Text,
           Category,
+          IDL.Opt(IDL.Nat),
         ],
         [],
         [],

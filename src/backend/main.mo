@@ -6,12 +6,13 @@ import Int "mo:core/Int";
 import Text "mo:core/Text";
 import Time "mo:core/Time";
 import Nat "mo:core/Nat";
-import Iter "mo:core/Iter";
 import Runtime "mo:core/Runtime";
 
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
   type Subject = {
     #physics;
@@ -19,17 +20,39 @@ actor {
     #biology;
   };
 
+  module Subject {
+    public func toText(subject : Subject) : Text {
+      switch (subject) {
+        case (#physics) { "physics" };
+        case (#chemistry) { "chemistry" };
+        case (#biology) { "biology" };
+      };
+    };
+  };
+
   public type Chapter = {
     id : Nat;
     subject : Subject;
     title : Text;
     description : Text;
+    sequence : Nat;
     createdAt : Int;
   };
 
   module Chapter {
     public func compare(chapter1 : Chapter, chapter2 : Chapter) : Order.Order {
-      Text.compare(chapter1.title, chapter2.title);
+      if (chapter1.subject != chapter2.subject) {
+        let getSubjectOrder : Subject -> Nat = func(s : Subject) {
+          switch (s) {
+            case (#physics) { 0 };
+            case (#chemistry) { 1 };
+            case (#biology) { 2 };
+          };
+        };
+        Nat.compare(getSubjectOrder(chapter1.subject), getSubjectOrder(chapter2.subject));
+      } else {
+        Nat.compare(chapter1.sequence, chapter2.sequence);
+      };
     };
   };
 
@@ -37,6 +60,16 @@ actor {
     #level1;
     #neetPYQ;
     #jeePYQ;
+  };
+
+  module Category {
+    public func toText(category : Category) : Text {
+      switch (category) {
+        case (#level1) { "Level 1" };
+        case (#neetPYQ) { "NEET PYQ" };
+        case (#jeePYQ) { "JEE PYQ" };
+      };
+    };
   };
 
   public type Question = {
@@ -52,6 +85,7 @@ actor {
     explanation : Text;
     category : Category;
     createdAt : Int;
+    year : ?Nat;
   };
 
   module Question {
@@ -107,6 +141,28 @@ actor {
     name : Text;
   };
 
+  public type PracticeProgressKey = {
+    subject : Subject;
+    chapterId : Nat;
+    category : Category;
+    year : ?Nat;
+  };
+
+  module PracticeProgressKey {
+    public func toText(key : PracticeProgressKey) : Text {
+      let yearText = switch (key.year) {
+        case (?y) { "Year-" # y.toText() };
+        case (null) { "Book" };
+      };
+      Subject.toText(key.subject) # "-" # key.chapterId.toText() # "-" # Category.toText(key.category) # "-" # yearText;
+    };
+  };
+
+  public type PracticeProgress = {
+    lastQuestionIndex : Nat;
+    discoveredQuestionIds : [Nat];
+  };
+
   // Persistent data structures
   let chapters = Map.empty<Nat, Chapter>();
   let questions = Map.empty<Nat, Question>();
@@ -114,13 +170,14 @@ actor {
   let testResults = Map.empty<Nat, TestResult>();
   let contributorAccess = Map.empty<Principal, Bool>();
   let userProfiles = Map.empty<Principal, UserProfile>();
+  let practiceProgress = Map.empty<Principal, Map.Map<Text, PracticeProgress>>();
 
   // Var next ids
   var nextChapterId = 1;
   var nextQuestionId = 1;
   var nextTestResultId = 1;
 
-  // Persistent admin password only authorized via principal
+  // Persistent admin password
   var contributorPassword = "9682";
 
   // Persistent count of unique authenticated users
@@ -130,33 +187,18 @@ actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  // Unlock contributor mode using global password
-  public shared ({ caller }) func unlockContributorMode(password : Text) : async Bool {
-    if (password == contributorPassword) {
-      contributorAccess.add(caller, true);
-      true;
-    } else {
-      false;
-    };
-  };
-
-  // Shows if contributor role is unlocked
+  // ========= RESOURCE GUARDS ========= //
   public query ({ caller }) func hasContributorAccess() : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can check contributor access");
+    };
+
     switch (contributorAccess.get(caller)) {
       case (?hasAccess) { hasAccess };
       case (null) { false };
     };
   };
 
-  // Admin-only function to set/change global contributor password
-  public shared ({ caller }) func setContributorPassword(newPassword : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can change the contributor password");
-    };
-    contributorPassword := newPassword;
-  };
-
-  // Expose total comparison of unique authenticated users
   public query ({ caller }) func getTotalAuthenticatedUsers() : async Nat {
     if (not (isContributor(caller))) {
       Runtime.trap("Unauthorized: Only contributors can view authenticated user stats");
@@ -164,7 +206,7 @@ actor {
     totalAuthenticatedUsers;
   };
 
-  // User Profile Management
+  // ========= USER PROFILE ========= //
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view profiles");
@@ -206,8 +248,13 @@ actor {
     };
   };
 
-  // Chapters Management
-  public shared ({ caller }) func createChapter(subject : Subject, title : Text, description : Text) : async Nat {
+  // ========= CHAPTERS ========= //
+  public shared ({ caller }) func createChapter(
+    subject : Subject,
+    title : Text,
+    description : Text,
+    sequence : Nat,
+  ) : async Nat {
     if (not isContributor(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Only contributors can create chapters");
     };
@@ -217,6 +264,7 @@ actor {
       subject;
       title;
       description;
+      sequence;
       createdAt = Time.now();
     };
     chapters.add(nextChapterId, chapter);
@@ -226,7 +274,7 @@ actor {
   };
 
   // Allow contributors to update chapter metadata (but not create/delete)
-  public shared ({ caller }) func updateChapter(id : Nat, title : Text, description : Text) : async () {
+  public shared ({ caller }) func updateChapter(id : Nat, title : Text, description : Text, sequence : Nat) : async () {
     if (not (isContributor(caller))) {
       Runtime.trap("Unauthorized: Only contributors can update chapters");
     };
@@ -238,6 +286,7 @@ actor {
           subject = chapter.subject;
           title;
           description;
+          sequence;
           createdAt = chapter.createdAt;
         };
         chapters.add(id, updatedChapter);
@@ -256,15 +305,15 @@ actor {
     chapters.remove(id);
   };
 
-  public query ({ caller }) func listChapters() : async [Chapter] {
+  public query func listChapters() : async [Chapter] {
     chapters.values().toArray().sort();
   };
 
-  public query ({ caller }) func getChaptersBySubject(subject : Subject) : async [Chapter] {
+  public query func getChaptersBySubject(subject : Subject) : async [Chapter] {
     chapters.values().toArray().filter(func(c) { c.subject == subject }).sort();
   };
 
-  // Contributor only Questions Management
+  // ========= QUESTIONS ========= //
   public shared ({ caller }) func createQuestion(
     subject : Subject,
     chapterId : Nat,
@@ -276,6 +325,7 @@ actor {
     correctOption : Text,
     explanation : Text,
     category : Category,
+    year : ?Nat,
   ) : async Nat {
     if (not isContributor(caller)) {
       Runtime.trap("Unauthorized: Only contributors can create questions");
@@ -294,6 +344,7 @@ actor {
       explanation;
       category;
       createdAt = Time.now();
+      year;
     };
     questions.add(nextQuestionId, question);
     let currentId = nextQuestionId;
@@ -311,6 +362,7 @@ actor {
     correctOption : Text,
     explanation : Text,
     category : Category,
+    year : ?Nat,
   ) : async () {
     if (not isContributor(caller)) {
       Runtime.trap("Unauthorized: Only contributors can update questions");
@@ -331,6 +383,7 @@ actor {
           explanation;
           category;
           createdAt = question.createdAt;
+          year;
         };
         questions.add(id, updatedQuestion);
       };
@@ -348,15 +401,91 @@ actor {
     questions.remove(id);
   };
 
-  public query ({ caller }) func listQuestions() : async [Question] {
+  public query func listQuestions() : async [Question] {
     questions.values().toArray();
   };
 
-  public query ({ caller }) func getQuestionsForChapter(chapterId : Nat) : async [Question] {
+  public query func getQuestionsForChapter(chapterId : Nat) : async [Question] {
     questions.values().toArray().filter(func(q) { q.chapterId == chapterId });
   };
 
-  // Practice Session Flow
+  public query func getQuestionsForYear(year : Nat, category : Category) : async [Question] {
+    questions.values().toArray().filter(
+      func(q) {
+        switch (q.year) {
+          case (?qYear) { qYear == year and q.category == category };
+          case (null) { false };
+        };
+      }
+    );
+  };
+
+  // ========= PRACTICE PROGRESS ========= //
+  public shared ({ caller }) func savePracticeProgress(key : PracticeProgressKey, progress : PracticeProgress) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can save practice progress");
+    };
+
+    let keyText = PracticeProgressKey.toText(key);
+    let currentProgress = switch (practiceProgress.get(caller)) {
+      case (?progressMap) { progressMap };
+      case (null) { Map.empty<Text, PracticeProgress>() };
+    };
+
+    currentProgress.add(keyText, progress);
+    practiceProgress.add(caller, currentProgress);
+  };
+
+  public query ({ caller }) func getPracticeProgress(key : PracticeProgressKey) : async ?PracticeProgress {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view practice progress");
+    };
+
+    let keyText = PracticeProgressKey.toText(key);
+    switch (practiceProgress.get(caller)) {
+      case (?progressMap) { progressMap.get(keyText) };
+      case (null) { null };
+    };
+  };
+
+  public shared ({ caller }) func getOrCreatePracticeProgress(
+    key : PracticeProgressKey,
+    totalQuestions : Nat,
+  ) : async ?PracticeProgress {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can get practice progress");
+    };
+
+    let keyText = PracticeProgressKey.toText(key);
+
+    switch (practiceProgress.get(caller)) {
+      case (?progressMap) {
+        switch (progressMap.get(keyText)) {
+          case (?progress) { ?progress };
+          case (null) {
+            let newProgress : PracticeProgress = {
+              lastQuestionIndex = 1;
+              discoveredQuestionIds = [];
+            };
+            progressMap.add(keyText, newProgress);
+            ?newProgress;
+          };
+        };
+      };
+      case (null) {
+        let newMap = Map.empty<Text, PracticeProgress>();
+        let newProgress : PracticeProgress = {
+          lastQuestionIndex = 1;
+          discoveredQuestionIds = [];
+        };
+        newMap.add(keyText, newProgress);
+        practiceProgress.add(caller, newMap);
+        ?newProgress;
+      };
+    };
+  };
+
+  // ========= TEST RESULTS ========= //
   public shared ({ caller }) func submitTestResult(subject : Subject, chapterId : Nat, attempts : [QuestionAttempt]) : async Nat {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can submit test results");
@@ -424,12 +553,11 @@ actor {
     nextTestResultId - 1;
   };
 
-  // Leaderboard (accessible to all users including guests)
-  public query ({ caller }) func getLeaderboard() : async [UserStats] {
+  // ========= LEADERBOARD ========= //
+  public query func getLeaderboard() : async [UserStats] {
     userStats.values().toArray().sort();
   };
 
-  // Get User Stats
   public query ({ caller }) func getUserStats(principal : Principal) : async UserStats {
     if (caller != principal and not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only view your own stats");

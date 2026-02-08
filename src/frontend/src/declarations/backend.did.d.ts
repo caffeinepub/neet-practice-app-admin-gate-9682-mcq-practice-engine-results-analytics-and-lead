@@ -19,6 +19,17 @@ export interface Chapter {
   'subject' : Subject,
   'createdAt' : bigint,
   'description' : string,
+  'sequence' : bigint,
+}
+export interface PracticeProgress {
+  'lastQuestionIndex' : bigint,
+  'discoveredQuestionIds' : Array<bigint>,
+}
+export interface PracticeProgressKey {
+  'subject' : Subject,
+  'year' : [] | [bigint],
+  'chapterId' : bigint,
+  'category' : Category,
 }
 export interface Question {
   'id' : bigint,
@@ -26,6 +37,7 @@ export interface Question {
   'subject' : Subject,
   'explanation' : string,
   'createdAt' : bigint,
+  'year' : [] | [bigint],
   'chapterId' : bigint,
   'questionText' : string,
   'category' : Category,
@@ -57,7 +69,7 @@ export interface UserStats {
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
-  'createChapter' : ActorMethod<[Subject, string, string], bigint>,
+  'createChapter' : ActorMethod<[Subject, string, string, bigint], bigint>,
   'createQuestion' : ActorMethod<
     [
       Subject,
@@ -70,6 +82,7 @@ export interface _SERVICE {
       string,
       string,
       Category,
+      [] | [bigint],
     ],
     bigint
   >,
@@ -80,7 +93,16 @@ export interface _SERVICE {
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getChaptersBySubject' : ActorMethod<[Subject], Array<Chapter>>,
   'getLeaderboard' : ActorMethod<[], Array<UserStats>>,
+  'getOrCreatePracticeProgress' : ActorMethod<
+    [PracticeProgressKey, bigint],
+    [] | [PracticeProgress]
+  >,
+  'getPracticeProgress' : ActorMethod<
+    [PracticeProgressKey],
+    [] | [PracticeProgress]
+  >,
   'getQuestionsForChapter' : ActorMethod<[bigint], Array<Question>>,
+  'getQuestionsForYear' : ActorMethod<[bigint, Category], Array<Question>>,
   'getTotalAuthenticatedUsers' : ActorMethod<[], bigint>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'getUserStats' : ActorMethod<[Principal], UserStats>,
@@ -89,15 +111,28 @@ export interface _SERVICE {
   'listChapters' : ActorMethod<[], Array<Chapter>>,
   'listQuestions' : ActorMethod<[], Array<Question>>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
-  'setContributorPassword' : ActorMethod<[string], undefined>,
+  'savePracticeProgress' : ActorMethod<
+    [PracticeProgressKey, PracticeProgress],
+    undefined
+  >,
   'submitTestResult' : ActorMethod<
     [Subject, bigint, Array<QuestionAttempt>],
     bigint
   >,
-  'unlockContributorMode' : ActorMethod<[string], boolean>,
-  'updateChapter' : ActorMethod<[bigint, string, string], undefined>,
+  'updateChapter' : ActorMethod<[bigint, string, string, bigint], undefined>,
   'updateQuestion' : ActorMethod<
-    [bigint, string, string, string, string, string, string, string, Category],
+    [
+      bigint,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      Category,
+      [] | [bigint],
+    ],
     undefined
   >,
 }

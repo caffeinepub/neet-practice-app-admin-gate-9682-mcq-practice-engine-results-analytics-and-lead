@@ -1,38 +1,23 @@
 import Map "mo:core/Map";
-import Nat "mo:core/Nat";
 import Principal "mo:core/Principal";
-import Text "mo:core/Text";
 import Int "mo:core/Int";
+import Nat "mo:core/Nat";
+import Text "mo:core/Text";
+import Order "mo:core/Order";
 
 module {
-  // Define all persistent types in the actor that are not var.
-  type Chapter = {
-    id : Nat;
-    subject : {
-      #physics;
-      #chemistry;
-      #biology;
-    };
-    title : Text;
-    description : Text;
-    createdAt : Int;
+  type Subject = {
+    #physics;
+    #chemistry;
+    #biology;
   };
 
-  type Question = {
+  type Chapter = {
     id : Nat;
-    subject : {
-      #physics;
-      #chemistry;
-      #biology;
-    };
-    chapterId : Nat;
-    questionText : Text;
-    optionA : Text;
-    optionB : Text;
-    optionC : Text;
-    optionD : Text;
-    correctOption : Text;
-    explanation : Text;
+    subject : Subject;
+    title : Text;
+    description : Text;
+    sequence : Nat;
     createdAt : Int;
   };
 
@@ -53,8 +38,8 @@ module {
 
   type TestResult = {
     id : Nat;
-    user : Principal.Principal;
-    subject : { #physics; #chemistry; #biology };
+    user : Principal;
+    subject : Subject;
     chapterId : Nat;
     attempts : [QuestionAttempt];
     score : Nat;
@@ -65,27 +50,125 @@ module {
     name : Text;
   };
 
+  type PracticeProgressKey = {
+    subject : Subject;
+    chapterId : Nat;
+    category : {
+      #level1;
+      #neetPYQ;
+      #jeePYQ;
+    };
+  };
+
+  type PracticeProgress = {
+    lastQuestionId : Nat;
+    discoveredQuestionIds : [Nat];
+  };
+
+  type OldQuestion = {
+    id : Nat;
+    subject : Subject;
+    chapterId : Nat;
+    questionText : Text;
+    optionA : Text;
+    optionB : Text;
+    optionC : Text;
+    optionD : Text;
+    correctOption : Text;
+    explanation : Text;
+    category : {
+      #level1;
+      #neetPYQ;
+      #jeePYQ;
+    };
+    createdAt : Int;
+  };
+
   type OldActor = {
     chapters : Map.Map<Nat, Chapter>;
-    questions : Map.Map<Nat, Question>;
-    userStats : Map.Map<Principal.Principal, UserStats>;
+    questions : Map.Map<Nat, OldQuestion>;
+    userStats : Map.Map<Principal, UserStats>;
     testResults : Map.Map<Nat, TestResult>;
-    userProfiles : Map.Map<Principal.Principal, UserProfile>;
+    contributorAccess : Map.Map<Principal, Bool>;
+    userProfiles : Map.Map<Principal, UserProfile>;
+    practiceProgress : Map.Map<Principal, Map.Map<Text, PracticeProgress>>;
     nextChapterId : Nat;
     nextQuestionId : Nat;
     nextTestResultId : Nat;
-    adminPassword : Text;
+    contributorPassword : Text;
+    totalAuthenticatedUsers : Nat;
   };
 
-  type NewActor = OldActor;
-
-  // Perform migration if existing canister holds old default password.
-  public func run(old : OldActor) : NewActor {
-    let newPassword = if (old.adminPassword == "admin123") {
-      "9682";
-    } else {
-      old.adminPassword;
+  type NewQuestion = {
+    id : Nat;
+    subject : Subject;
+    chapterId : Nat;
+    questionText : Text;
+    optionA : Text;
+    optionB : Text;
+    optionC : Text;
+    optionD : Text;
+    correctOption : Text;
+    explanation : Text;
+    category : {
+      #level1;
+      #neetPYQ;
+      #jeePYQ;
     };
-    { old with adminPassword = newPassword };
+    createdAt : Int;
+    year : ?Nat;
+  };
+
+  type NewPracticeProgressKey = {
+    subject : Subject;
+    chapterId : Nat;
+    category : {
+      #level1;
+      #neetPYQ;
+      #jeePYQ;
+    };
+    year : ?Nat;
+  };
+
+  type NewPracticeProgress = {
+    lastQuestionIndex : Nat;
+    discoveredQuestionIds : [Nat];
+  };
+
+  type NewActor = {
+    chapters : Map.Map<Nat, Chapter>;
+    questions : Map.Map<Nat, NewQuestion>;
+    userStats : Map.Map<Principal, UserStats>;
+    testResults : Map.Map<Nat, TestResult>;
+    contributorAccess : Map.Map<Principal, Bool>;
+    userProfiles : Map.Map<Principal, UserProfile>;
+    practiceProgress : Map.Map<Principal, Map.Map<Text, NewPracticeProgress>>;
+    nextChapterId : Nat;
+    nextQuestionId : Nat;
+    nextTestResultId : Nat;
+    contributorPassword : Text;
+    totalAuthenticatedUsers : Nat;
+  };
+
+  public func run(old : OldActor) : NewActor {
+    let newQuestions = old.questions.map<Nat, OldQuestion, NewQuestion>(
+      func(_id, oldQ) { { oldQ with year = null } }
+    );
+
+    let newPracticeProgress = old.practiceProgress.map<Principal, Map.Map<Text, PracticeProgress>, Map.Map<Text, NewPracticeProgress>>(
+      func(_p, oldProgress) {
+        oldProgress.map<Text, PracticeProgress, NewPracticeProgress>(
+          func(_k, oldPP) {
+            { oldPP with lastQuestionIndex = oldPP.lastQuestionId };
+          }
+        );
+      }
+    );
+
+    {
+      old with
+      questions = newQuestions;
+      practiceProgress = newPracticeProgress;
+    };
   };
 };

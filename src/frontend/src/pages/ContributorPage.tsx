@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useHasContributorAccess } from '../hooks/useAuthz';
 import { useActor } from '../hooks/useActor';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
@@ -14,6 +15,7 @@ import {
 } from '../hooks/useQueries';
 import MobilePage from '../components/layout/MobilePage';
 import ContributorGateCard from '../components/contributor/ContributorGateCard';
+import CanisterConnectionTimeoutCard from '../components/contributor/CanisterConnectionTimeoutCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,8 +35,11 @@ const categoryLabels: Record<Category, string> = {
   [Category.jeePYQ]: 'JEE PYQ',
 };
 
+const CONNECTION_TIMEOUT_MS = 15000; // 15 seconds
+
 export default function ContributorPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
   const { data: hasAccess, isLoading: accessLoading } = useHasContributorAccess();
@@ -42,6 +47,10 @@ export default function ContributorPage() {
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   
+  // Timeout state management
+  const [connectionTimedOut, setConnectionTimedOut] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+
   // Only fetch chapters when user has contributor access
   const { data: chapters, isLoading: chaptersLoading } = useListChapters(hasAccess);
   const { data: questions, isLoading: questionsLoading } = useGetQuestionsForChapter(
@@ -77,15 +86,65 @@ export default function ContributorPage() {
   const [chapterForm, setChapterForm] = useState({
     title: '',
     description: '',
+    sequence: '',
   });
 
   const [newChapterForm, setNewChapterForm] = useState({
     title: '',
     description: '',
+    sequence: '',
   });
 
   const isActorReady = !!actor && !actorFetching;
   const isLoggedIn = !!identity;
+
+  // Timeout effect: start timer when actor is not ready
+  useEffect(() => {
+    if (!isActorReady && !connectionTimedOut) {
+      const timeoutId = setTimeout(() => {
+        setConnectionTimedOut(true);
+      }, CONNECTION_TIMEOUT_MS);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isActorReady, connectionTimedOut]);
+
+  // Reset timeout when actor becomes ready
+  useEffect(() => {
+    if (isActorReady) {
+      setConnectionTimedOut(false);
+      setIsRetrying(false);
+    }
+  }, [isActorReady]);
+
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    setConnectionTimedOut(false);
+    
+    // Invalidate all queries to trigger a fresh fetch
+    await queryClient.invalidateQueries();
+    
+    // Reset timeout after a brief delay
+    setTimeout(() => {
+      if (!isActorReady) {
+        setIsRetrying(false);
+      }
+    }, 2000);
+  };
+
+  // Show timeout recovery UI if connection takes too long
+  if (connectionTimedOut && !isActorReady) {
+    return (
+      <MobilePage>
+        <div className="flex flex-col items-center justify-center py-12">
+          <CanisterConnectionTimeoutCard
+            onRetry={handleRetry}
+            isRetrying={isRetrying}
+          />
+        </div>
+      </MobilePage>
+    );
+  }
 
   // Show loading state while actor is initializing
   if (!isActorReady || accessLoading) {
@@ -193,12 +252,20 @@ export default function ContributorPage() {
       toast.error('Please select a subject first');
       return;
     }
+    
+    const sequenceNum = parseInt(newChapterForm.sequence, 10);
+    if (isNaN(sequenceNum) || sequenceNum < 0) {
+      setCreateChapterError('Please enter a valid sequence number (0 or greater)');
+      return;
+    }
+
     setCreateChapterError(null);
     try {
       const newChapterId = await createChapter.mutateAsync({
         subject: selectedSubject,
         title: newChapterForm.title,
         description: newChapterForm.description,
+        sequence: BigInt(sequenceNum),
       });
       toast.success('Chapter created successfully');
       setCreateChapterDialogOpen(false);
@@ -215,10 +282,19 @@ export default function ContributorPage() {
   const handleUpdateChapter = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingChapter) return;
+
+    const sequenceNum = parseInt(chapterForm.sequence, 10);
+    if (isNaN(sequenceNum) || sequenceNum < 0) {
+      toast.error('Please enter a valid sequence number (0 or greater)');
+      return;
+    }
+
     try {
       await updateChapter.mutateAsync({
         id: editingChapter.id,
-        ...chapterForm,
+        title: chapterForm.title,
+        description: chapterForm.description,
+        sequence: BigInt(sequenceNum),
       });
       toast.success('Chapter updated successfully');
       setChapterDialogOpen(false);
@@ -246,6 +322,7 @@ export default function ContributorPage() {
     setChapterForm({
       title: '',
       description: '',
+      sequence: '',
     });
   };
 
@@ -253,6 +330,7 @@ export default function ContributorPage() {
     setNewChapterForm({
       title: '',
       description: '',
+      sequence: '',
     });
   };
 
@@ -282,6 +360,7 @@ export default function ContributorPage() {
     setChapterForm({
       title: chapter.title,
       description: chapter.description,
+      sequence: chapter.sequence.toString(),
     });
     setChapterDialogOpen(true);
   };
@@ -442,6 +521,24 @@ export default function ContributorPage() {
                           placeholder="Brief description of the chapter content"
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="newChapterSequence">Sequence Number *</Label>
+                        <Input
+                          id="newChapterSequence"
+                          type="number"
+                          min="0"
+                          value={newChapterForm.sequence}
+                          onChange={(e) => {
+                            setNewChapterForm({ ...newChapterForm, sequence: e.target.value });
+                            setCreateChapterError(null);
+                          }}
+                          required
+                          placeholder="e.g., 1, 2, 3..."
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Chapters are displayed in sequence order (lowest first)
+                        </p>
+                      </div>
                       <div className="flex justify-end gap-2">
                         <Button
                           type="button"
@@ -469,7 +566,7 @@ export default function ContributorPage() {
             </CardHeader>
             <CardContent>
               {chaptersLoading ? (
-                <div className="flex justify-center py-8">
+                <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : filteredChapters.length > 0 ? (
@@ -477,17 +574,16 @@ export default function ContributorPage() {
                   {filteredChapters.map((chapter) => (
                     <div
                       key={chapter.id.toString()}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors"
+                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex-1">
-                        <h3 className="font-medium">{chapter.title}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-1">
-                          {chapter.description}
-                        </p>
+                        <p className="font-medium">{chapter.title}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-1">{chapter.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Sequence: {chapter.sequence.toString()}</p>
                       </div>
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => openEditChapterDialog(chapter)}
                       >
                         <Edit className="w-4 h-4" />
@@ -496,249 +592,20 @@ export default function ContributorPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 space-y-3">
-                  <p className="text-muted-foreground">
-                    No chapters available for this subject
-                  </p>
-                  <Button onClick={openCreateChapterDialog} variant="outline" size="sm">
-                    <BookPlus className="w-4 h-4 mr-2" />
-                    Create First Chapter
-                  </Button>
-                </div>
+                <p className="text-center text-muted-foreground py-8">
+                  No chapters yet. Create one to get started.
+                </p>
               )}
             </CardContent>
           </Card>
         )}
 
-        {selectedChapterId && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold">Questions ({questions?.length || 0})</h2>
-              <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button onClick={openCreateDialog}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Question
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>
-                      {editingQuestion ? 'Edit Question' : 'Create New Question'}
-                    </DialogTitle>
-                    <DialogDescription>
-                      {editingQuestion
-                        ? 'Update the question details below'
-                        : 'Fill in the details to create a new question'}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={editingQuestion ? handleUpdateQuestion : handleCreateQuestion} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="questionText">Question Text *</Label>
-                      <Textarea
-                        id="questionText"
-                        value={questionForm.questionText}
-                        onChange={(e) =>
-                          setQuestionForm({ ...questionForm, questionText: e.target.value })
-                        }
-                        required
-                        rows={3}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Category *</Label>
-                      <Select
-                        value={questionForm.category}
-                        onValueChange={(value) =>
-                          setQuestionForm({ ...questionForm, category: value as Category })
-                        }
-                      >
-                        <SelectTrigger id="category">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={Category.level1}>Level 1</SelectItem>
-                          <SelectItem value={Category.neetPYQ}>NEET PYQ</SelectItem>
-                          <SelectItem value={Category.jeePYQ}>JEE PYQ</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="optionA">Option A *</Label>
-                        <Input
-                          id="optionA"
-                          value={questionForm.optionA}
-                          onChange={(e) =>
-                            setQuestionForm({ ...questionForm, optionA: e.target.value })
-                          }
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="optionB">Option B *</Label>
-                        <Input
-                          id="optionB"
-                          value={questionForm.optionB}
-                          onChange={(e) =>
-                            setQuestionForm({ ...questionForm, optionB: e.target.value })
-                          }
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="optionC">Option C *</Label>
-                        <Input
-                          id="optionC"
-                          value={questionForm.optionC}
-                          onChange={(e) =>
-                            setQuestionForm({ ...questionForm, optionC: e.target.value })
-                          }
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="optionD">Option D *</Label>
-                        <Input
-                          id="optionD"
-                          value={questionForm.optionD}
-                          onChange={(e) =>
-                            setQuestionForm({ ...questionForm, optionD: e.target.value })
-                          }
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="correctOption">Correct Option *</Label>
-                      <Select
-                        value={questionForm.correctOption}
-                        onValueChange={(value) =>
-                          setQuestionForm({ ...questionForm, correctOption: value })
-                        }
-                      >
-                        <SelectTrigger id="correctOption">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="A">A</SelectItem>
-                          <SelectItem value="B">B</SelectItem>
-                          <SelectItem value="C">C</SelectItem>
-                          <SelectItem value="D">D</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="explanation">Explanation *</Label>
-                      <Textarea
-                        id="explanation"
-                        value={questionForm.explanation}
-                        onChange={(e) =>
-                          setQuestionForm({ ...questionForm, explanation: e.target.value })
-                        }
-                        required
-                        rows={3}
-                      />
-                    </div>
-
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setQuestionDialogOpen(false);
-                          setEditingQuestion(null);
-                          resetQuestionForm();
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={createQuestion.isPending || updateQuestion.isPending}
-                      >
-                        {(createQuestion.isPending || updateQuestion.isPending) ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            {editingQuestion ? 'Updating...' : 'Creating...'}
-                          </>
-                        ) : (
-                          editingQuestion ? 'Update Question' : 'Create Question'
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            {questionsLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-              </div>
-            ) : questions && questions.length > 0 ? (
-              <div className="space-y-3">
-                {questions.map((question, index) => (
-                  <Card key={question.id.toString()}>
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">Q{index + 1}</Badge>
-                            <Badge variant="secondary">{categoryLabels[question.category]}</Badge>
-                          </div>
-                          <p className="font-medium">{question.questionText}</p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                            <div className={question.correctOption === 'A' ? 'text-green-600 font-medium' : ''}>
-                              A. {question.optionA}
-                            </div>
-                            <div className={question.correctOption === 'B' ? 'text-green-600 font-medium' : ''}>
-                              B. {question.optionB}
-                            </div>
-                            <div className={question.correctOption === 'C' ? 'text-green-600 font-medium' : ''}>
-                              C. {question.optionC}
-                            </div>
-                            <div className={question.correctOption === 'D' ? 'text-green-600 font-medium' : ''}>
-                              D. {question.optionD}
-                            </div>
-                          </div>
-                          <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                            <HelpCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                            <p>{question.explanation}</p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(question)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <p className="text-muted-foreground">No questions yet. Add your first question!</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
-
-        {/* Edit Chapter Dialog */}
+        {/* Chapter Edit Dialog */}
         <Dialog open={chapterDialogOpen} onOpenChange={setChapterDialogOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Edit Chapter</DialogTitle>
-              <DialogDescription>Update the chapter details</DialogDescription>
+              <DialogDescription>Update chapter details</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleUpdateChapter} className="space-y-4">
               <div className="space-y-2">
@@ -746,9 +613,7 @@ export default function ContributorPage() {
                 <Input
                   id="chapterTitle"
                   value={chapterForm.title}
-                  onChange={(e) =>
-                    setChapterForm({ ...chapterForm, title: e.target.value })
-                  }
+                  onChange={(e) => setChapterForm({ ...chapterForm, title: e.target.value })}
                   required
                 />
               </div>
@@ -757,22 +622,31 @@ export default function ContributorPage() {
                 <Textarea
                   id="chapterDescription"
                   value={chapterForm.description}
-                  onChange={(e) =>
-                    setChapterForm({ ...chapterForm, description: e.target.value })
-                  }
+                  onChange={(e) => setChapterForm({ ...chapterForm, description: e.target.value })}
                   required
                   rows={3}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="chapterSequence">Sequence Number *</Label>
+                <Input
+                  id="chapterSequence"
+                  type="number"
+                  min="0"
+                  value={chapterForm.sequence}
+                  onChange={(e) => setChapterForm({ ...chapterForm, sequence: e.target.value })}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Chapters are displayed in sequence order (lowest first)
+                </p>
               </div>
               <div className="flex justify-end gap-2">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => {
-                    setChapterDialogOpen(false);
-                    setEditingChapter(null);
-                    resetChapterForm();
-                  }}
+                  onClick={() => setChapterDialogOpen(false)}
+                  disabled={updateChapter.isPending}
                 >
                   Cancel
                 </Button>
@@ -790,6 +664,212 @@ export default function ContributorPage() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Questions Section */}
+        {selectedChapterId && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Questions</CardTitle>
+                  <CardDescription>Manage questions for this chapter</CardDescription>
+                </div>
+                <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button onClick={openCreateDialog} size="sm">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Question
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>{editingQuestion ? 'Edit Question' : 'Create New Question'}</DialogTitle>
+                      <DialogDescription>
+                        {editingQuestion ? 'Update the question details' : 'Add a new question to this chapter'}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={editingQuestion ? handleUpdateQuestion : handleCreateQuestion} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="questionText">Question Text *</Label>
+                        <Textarea
+                          id="questionText"
+                          value={questionForm.questionText}
+                          onChange={(e) => setQuestionForm({ ...questionForm, questionText: e.target.value })}
+                          required
+                          rows={3}
+                          placeholder="Enter the question"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="optionA">Option A *</Label>
+                          <Input
+                            id="optionA"
+                            value={questionForm.optionA}
+                            onChange={(e) => setQuestionForm({ ...questionForm, optionA: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="optionB">Option B *</Label>
+                          <Input
+                            id="optionB"
+                            value={questionForm.optionB}
+                            onChange={(e) => setQuestionForm({ ...questionForm, optionB: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="optionC">Option C *</Label>
+                          <Input
+                            id="optionC"
+                            value={questionForm.optionC}
+                            onChange={(e) => setQuestionForm({ ...questionForm, optionC: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="optionD">Option D *</Label>
+                          <Input
+                            id="optionD"
+                            value={questionForm.optionD}
+                            onChange={(e) => setQuestionForm({ ...questionForm, optionD: e.target.value })}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="correctOption">Correct Option *</Label>
+                        <Select
+                          value={questionForm.correctOption}
+                          onValueChange={(value) => setQuestionForm({ ...questionForm, correctOption: value })}
+                        >
+                          <SelectTrigger id="correctOption">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="A">A</SelectItem>
+                            <SelectItem value="B">B</SelectItem>
+                            <SelectItem value="C">C</SelectItem>
+                            <SelectItem value="D">D</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="category">Category *</Label>
+                        <Select
+                          value={questionForm.category}
+                          onValueChange={(value) => setQuestionForm({ ...questionForm, category: value as Category })}
+                        >
+                          <SelectTrigger id="category">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={Category.level1}>{categoryLabels[Category.level1]}</SelectItem>
+                            <SelectItem value={Category.neetPYQ}>{categoryLabels[Category.neetPYQ]}</SelectItem>
+                            <SelectItem value={Category.jeePYQ}>{categoryLabels[Category.jeePYQ]}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="explanation">Explanation *</Label>
+                        <Textarea
+                          id="explanation"
+                          value={questionForm.explanation}
+                          onChange={(e) => setQuestionForm({ ...questionForm, explanation: e.target.value })}
+                          required
+                          rows={3}
+                          placeholder="Explain why the correct answer is correct"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setQuestionDialogOpen(false)}
+                          disabled={createQuestion.isPending || updateQuestion.isPending}
+                        >
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={createQuestion.isPending || updateQuestion.isPending}>
+                          {createQuestion.isPending || updateQuestion.isPending ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              {editingQuestion ? 'Updating...' : 'Creating...'}
+                            </>
+                          ) : editingQuestion ? (
+                            'Update Question'
+                          ) : (
+                            'Create Question'
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {questionsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : questions && questions.length > 0 ? (
+                <div className="space-y-3">
+                  {questions.map((question, index) => (
+                    <div
+                      key={question.id.toString()}
+                      className="p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-muted-foreground">Q{index + 1}</span>
+                            <Badge variant="outline">{categoryLabels[question.category]}</Badge>
+                          </div>
+                          <p className="font-medium">{question.questionText}</p>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <p>
+                              <span className={question.correctOption === 'A' ? 'font-bold text-green-600' : ''}>
+                                A: {question.optionA}
+                              </span>
+                            </p>
+                            <p>
+                              <span className={question.correctOption === 'B' ? 'font-bold text-green-600' : ''}>
+                                B: {question.optionB}
+                              </span>
+                            </p>
+                            <p>
+                              <span className={question.correctOption === 'C' ? 'font-bold text-green-600' : ''}>
+                                C: {question.optionC}
+                              </span>
+                            </p>
+                            <p>
+                              <span className={question.correctOption === 'D' ? 'font-bold text-green-600' : ''}>
+                                D: {question.optionD}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditDialog(question)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  No questions yet. Add one to get started.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </MobilePage>
   );

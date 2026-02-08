@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
 import { useInternetIdentity } from './useInternetIdentity';
-import type { UserProfile, Chapter, Question, QuestionAttempt, UserStats, Subject, Category } from '../backend';
+import type { UserProfile, Chapter, Question, QuestionAttempt, UserStats, Subject, Category, PracticeProgressKey, PracticeProgress } from '../backend';
 
 // User Profile
 export function useGetCallerUserProfile() {
@@ -73,9 +73,9 @@ export function useCreateChapter() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ subject, title, description }: { subject: Subject; title: string; description: string }) => {
+    mutationFn: async ({ subject, title, description, sequence }: { subject: Subject; title: string; description: string; sequence: bigint }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.createChapter(subject, title, description);
+      return actor.createChapter(subject, title, description, sequence);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chapters'] });
@@ -88,9 +88,9 @@ export function useUpdateChapter() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, title, description }: { id: bigint; title: string; description: string }) => {
+    mutationFn: async ({ id, title, description, sequence }: { id: bigint; title: string; description: string; sequence: bigint }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.updateChapter(id, title, description);
+      return actor.updateChapter(id, title, description, sequence);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chapters'] });
@@ -146,7 +146,19 @@ export function useCreateQuestion() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: {
+    mutationFn: async ({
+      subject,
+      chapterId,
+      questionText,
+      optionA,
+      optionB,
+      optionC,
+      optionD,
+      correctOption,
+      explanation,
+      category,
+      year,
+    }: {
       subject: Subject;
       chapterId: bigint;
       questionText: string;
@@ -157,20 +169,10 @@ export function useCreateQuestion() {
       correctOption: string;
       explanation: string;
       category: Category;
+      year?: bigint | null;
     }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.createQuestion(
-        params.subject,
-        params.chapterId,
-        params.questionText,
-        params.optionA,
-        params.optionB,
-        params.optionC,
-        params.optionD,
-        params.correctOption,
-        params.explanation,
-        params.category
-      );
+      return actor.createQuestion(subject, chapterId, questionText, optionA, optionB, optionC, optionD, correctOption, explanation, category, year ?? null);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['questions'] });
@@ -183,7 +185,18 @@ export function useUpdateQuestion() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: {
+    mutationFn: async ({
+      id,
+      questionText,
+      optionA,
+      optionB,
+      optionC,
+      optionD,
+      correctOption,
+      explanation,
+      category,
+      year,
+    }: {
       id: bigint;
       questionText: string;
       optionA: string;
@@ -193,19 +206,10 @@ export function useUpdateQuestion() {
       correctOption: string;
       explanation: string;
       category: Category;
+      year?: bigint | null;
     }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.updateQuestion(
-        params.id,
-        params.questionText,
-        params.optionA,
-        params.optionB,
-        params.optionC,
-        params.optionD,
-        params.correctOption,
-        params.explanation,
-        params.category
-      );
+      return actor.updateQuestion(id, questionText, optionA, optionB, optionC, optionD, correctOption, explanation, category, year ?? null);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['questions'] });
@@ -228,21 +232,65 @@ export function useDeleteQuestion() {
   });
 }
 
+// Practice Progress - helper to create cache key with optional year
+function createProgressCacheKey(key: PracticeProgressKey) {
+  return ['practiceProgress', key.subject, key.chapterId.toString(), key.category, key.year?.toString() ?? 'no-year'];
+}
+
+export function useGetOrCreatePracticeProgress(key: PracticeProgressKey, totalQuestions: bigint) {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+
+  return useQuery<PracticeProgress | null>({
+    queryKey: createProgressCacheKey(key),
+    queryFn: async () => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.getOrCreatePracticeProgress(key, totalQuestions);
+    },
+    enabled: !!actor && !actorFetching && !!identity,
+    retry: false,
+  });
+}
+
+export function useGetPracticeProgress(key: PracticeProgressKey) {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+
+  return useQuery<PracticeProgress | null>({
+    queryKey: createProgressCacheKey(key),
+    queryFn: async () => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.getPracticeProgress(key);
+    },
+    enabled: !!actor && !actorFetching && !!identity,
+    retry: false,
+  });
+}
+
+export function useSavePracticeProgress() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ key, progress }: { key: PracticeProgressKey; progress: PracticeProgress }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.savePracticeProgress(key, progress);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: createProgressCacheKey(variables.key),
+      });
+    },
+  });
+}
+
 // Test Results
 export function useSubmitTestResult() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      subject,
-      chapterId,
-      attempts,
-    }: {
-      subject: Subject;
-      chapterId: bigint;
-      attempts: QuestionAttempt[];
-    }) => {
+    mutationFn: async ({ subject, chapterId, attempts }: { subject: Subject; chapterId: bigint; attempts: QuestionAttempt[] }) => {
       if (!actor) throw new Error('Actor not available');
       return actor.submitTestResult(subject, chapterId, attempts);
     },
@@ -253,20 +301,7 @@ export function useSubmitTestResult() {
   });
 }
 
-// Stats & Leaderboard
-export function useGetCallerStats() {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery<UserStats>({
-    queryKey: ['callerStats'],
-    queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.getCallerStats();
-    },
-    enabled: !!actor && !actorFetching,
-  });
-}
-
+// Leaderboard
 export function useGetLeaderboard() {
   const { actor, isFetching: actorFetching } = useActor();
 
@@ -280,7 +315,22 @@ export function useGetLeaderboard() {
   });
 }
 
-// Contributor Analytics
+// User Stats
+export function useGetCallerStats() {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+
+  return useQuery<UserStats>({
+    queryKey: ['callerStats'],
+    queryFn: async () => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.getCallerStats();
+    },
+    enabled: !!actor && !actorFetching && !!identity,
+  });
+}
+
+// Total Authenticated Users
 export function useGetTotalAuthenticatedUsers() {
   const { actor, isFetching: actorFetching } = useActor();
 

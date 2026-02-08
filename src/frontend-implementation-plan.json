@@ -1,37 +1,85 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Frontend readiness for Live deployment branding and validation",
+  "title": "Practice UX upgrades: clickable navigator, reliable resume, and PYQ year selection",
   "requirements": [
     {
-      "id": "REQ-38",
-      "summary": "Prepare the frontend to support a permanent Live deployment by centralizing a valid Live name, validating it against constraints, and ensuring the Live URL renders the Home page cleanly.",
+      "id": "REQ-1",
+      "summary": "Add a visible clickable question-number navigator on the Practice page to jump directly to any question with clear active-state styling and consistent behavior during feedback.",
       "acceptanceCriteria": [
-        "A valid Live name is used that is 5–50 characters and contains only letters, numbers, and hyphens (no spaces).",
-        "The app is pushed to Live (not left in Draft).",
-        "After publishing, the Live deployment remains available permanently (i.e., does not expire as Draft versions can).",
-        "The Live deployment URL loads the app successfully and renders the Home page."
+        "On the practice screen, a question-number navigator is visible (e.g., 1..N) for the current (subject, chapter, category).",
+        "Clicking a question number immediately navigates to that question (updates the current question/slide).",
+        "The currently active question number is visually highlighted.",
+        "Question navigation is disabled or clearly indicated as limited while answer feedback is shown (to avoid accidental navigation), or navigation clears feedback state in a consistent way."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/config/liveDeployment.ts",
+          "path": "frontend/src/components/practice/QuestionNavigator.tsx",
           "operation": "create",
-          "description": "Add a single source of truth for the intended Live name (e.g., an exported constant) plus a small validator enforcing 5–50 chars and only letters/numbers/hyphens; expose a helper the UI can use to warn if misconfigured."
+          "description": "Create a reusable QuestionNavigator component that renders a responsive list/grid of question numbers (1..N), highlights the active index, and supports disabled/limited navigation while feedback is shown. Use shadcn-ui primitives (e.g., Button) for consistent styling; verify the component's usage instructions before implementing."
         },
         {
-          "path": "frontend/index.html",
+          "path": "frontend/src/pages/PracticePage.tsx",
           "operation": "modify",
-          "description": "Update the document title to remove draft/internal references and align branding with the configured Live name so the Live deployment appears polished and permanent."
+          "description": "Replace/augment the current \"Jump to\" number input with the new clickable QuestionNavigator for the currently filtered question set. Wire clicks to setCurrentIndex and apply a consistent policy for feedback state (e.g., disable navigator while showFeedback is true, or clear feedback state on navigation). Use shadcn-ui components where appropriate; verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Make practice resume reliably restore the last viewed question for the same (subject, chapter, category, and optional year), using localStorage for anonymous users and backend progress for authenticated users; clear stored progress after test submission.",
+      "acceptanceCriteria": [
+        "Anonymous users: leaving the app and returning to the same practice route resumes at the last seen question index using localStorage persistence.",
+        "Authenticated users: leaving the app and returning to the same practice route resumes at the last seen question using backend practice progress.",
+        "After completing and submitting a test, stored progress for that (subject, chapter, category) is cleared so the next attempt starts from question 1."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/utils/practiceProgressStorage.ts",
+          "operation": "modify",
+          "description": "Extend localStorage progress utilities to support a stable composite key that includes (subject, chapterId, category, optional year) so PYQ year-based sessions do not overwrite each other. Keep all user-facing text in English."
         },
         {
-          "path": "frontend/src/components/layout/AppShell.tsx",
+          "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Read the configured Live name from frontend/src/config/liveDeployment.ts and display it consistently in the header/branding area; add a non-blocking validation warning (English) in the footer or console when the Live name violates the required constraints."
+          "description": "Add a React Query hook for authenticated resume that uses the available backend capability getOrCreatePracticeProgress(key, totalQuestions) (and ensure query keys include optional year when present). This allows reliable progress initialization/resume for authenticated users."
         },
         {
-          "path": "frontend/src/pages/HomePage.tsx",
+          "path": "frontend/src/pages/PracticePage.tsx",
           "operation": "modify",
-          "description": "Ensure the Home page hero/heading uses the centralized Live branding (from frontend/src/config/liveDeployment.ts) and remains the default route experience so the Live URL reliably renders the Home page."
+          "description": "Fix authenticated resume and saving logic to align with the typed backend interface (use lastQuestionIndex instead of lastQuestionId). For authenticated users, load progress via the new getOrCreatePracticeProgress-based hook and restore currentIndex safely within bounds; persist currentIndex changes to backend. For anonymous users, persist/restore via localStorage using the composite key (including optional year). Ensure progress is cleared after submit so next attempt starts at question 1 (clear localStorage; for authenticated users, save a cleared progress state). Keep user-facing text in English and handle any backend authorization/trap errors gracefully."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Add year-wise PYQ practice selection (2025–2000 when present) by prompting for year selection before starting NEET PYQ/JEE PYQ practice and filtering questions by the selected year.",
+      "acceptanceCriteria": [
+        "Backend stores a year value on PYQ questions (NEET PYQ and JEE PYQ), and existing questions remain readable after the change (defaulting the year field appropriately).",
+        "Frontend provides a year selection UI when the user selects NEET PYQ or JEE PYQ for a chapter (only if multiple years exist).",
+        "Selecting a year starts practice showing only PYQ questions for that selected year (within the chosen chapter and PYQ category).",
+        "The available years shown for selection are derived from actual question data and include years in the range 2025..2000 when present."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/practice/YearSelectDialog.tsx",
+          "operation": "create",
+          "description": "Create a YearSelectDialog component that displays available years (derived from question data) in descending order and returns the selected year. Use shadcn-ui Dialog/Button/ScrollArea (as available) for accessible UI; verify the component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/pages/ChapterCategorySelectPage.tsx",
+          "operation": "modify",
+          "description": "When user selects NEET PYQ or JEE PYQ, derive unique available years for that category from chapter question data. If multiple years exist, open YearSelectDialog; if exactly one year exists, auto-start; if none, keep disabled. Navigate to Practice with the selected year stored in route search params (preferred) so no new top-level route is required. Use shadcn-ui components for consistent UI; verify the component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/pages/PracticePage.tsx",
+          "operation": "modify",
+          "description": "Read the selected PYQ year from router search params and: (1) include it in the PracticeProgressKey for authenticated progress, (2) include it in the anonymous localStorage key, and (3) filter the loaded chapter questions to the selected year for PYQ categories. If a PYQ category is entered without a required year while multiple years exist, redirect back to year selection (or show an in-page prompt) using English user-facing text."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Ensure practice-progress query/mutation cache keys incorporate the optional year field so year-specific PYQ sessions do not collide for authenticated users."
         }
       ]
     }

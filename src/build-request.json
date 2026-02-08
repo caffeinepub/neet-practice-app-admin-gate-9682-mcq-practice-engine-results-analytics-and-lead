@@ -1,38 +1,108 @@
 {
   "kind": "build_request",
-  "title": "Publish the current app as a permanent Live deployment",
-  "priority": "high",
+  "title": "Add clickable question navigator, resume practice position, and seed NEET syllabus chapters + year-wise PYQ (2025–2000)",
+  "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-38",
-      "text": "Publish the current deployed Draft version as a Live (permanent) deployment on the Internet Computer by renaming the project to a valid Live domain name and pushing it live.",
-      "target": "unknown",
+      "id": "REQ-1",
+      "text": "Update the Practice page so students can jump to any question by clicking on a visible list/grid of question numbers (a question navigator), instead of only typing a number.",
+      "target": "frontend",
       "source": {
         "messageIds": [
           "msg-1"
         ],
         "quotes": [
-          "Make this live now"
+          "When some try to attemp question he or she can skip to any question by clicking on question number"
         ]
       },
       "acceptanceCriteria": [
-        "A valid Live name is used that is 5–50 characters and contains only letters, numbers, and hyphens (no spaces).",
-        "The app is pushed to Live (not left in Draft).",
-        "After publishing, the Live deployment remains available permanently (i.e., does not expire as Draft versions can).",
-        "The Live deployment URL loads the app successfully and renders the Home page."
+        "On the practice screen, a question-number navigator is visible (e.g., 1..N) for the current (subject, chapter, category).",
+        "Clicking a question number immediately navigates to that question (updates the current question/slide).",
+        "The currently active question number is visually highlighted.",
+        "Question navigation is disabled or clearly indicated as limited while answer feedback is shown (to avoid accidental navigation), or navigation clears feedback state in a consistent way."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Ensure practice resume behavior reliably restores the student to the same question/slide they last viewed when they exit and later return to the same (subject, chapter, category), for both anonymous and authenticated users.",
+      "target": "both",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "when student exit and after some time he tries to attain question he should be at same slide of questions where he left"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Anonymous users: leaving the app and returning to the same practice route resumes at the last seen question index using localStorage persistence.",
+        "Authenticated users: leaving the app and returning to the same practice route resumes at the last seen question using backend practice progress.",
+        "After completing and submitting a test, stored progress for that (subject, chapter, category) is cleared so the next attempt starts from question 1."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Add support for year-wise PYQ organization for NEET PYQ and JEE PYQ questions from year 2025 down to 2000, including backend data modeling and frontend year selection before starting PYQ practice.",
+      "target": "both",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "in neet jee pyq section put pyq by your own ... and question of neet jee should be year wise from 2025 to 2000"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Backend stores a year value on PYQ questions (NEET PYQ and JEE PYQ), and existing questions remain readable after the change (defaulting the year field appropriately).",
+        "Frontend provides a year selection UI when the user selects NEET PYQ or JEE PYQ for a chapter (only if multiple years exist).",
+        "Selecting a year starts practice showing only PYQ questions for that selected year (within the chosen chapter and PYQ category).",
+        "The available years shown for selection are derived from actual question data and include years in the range 2025..2000 when present."
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Populate the app with NEET-syllabus-based chapters for Physics, Chemistry, and Biology, and populate the NEET/JEE PYQ banks with year-tagged questions for years 2025–2000.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "And add chapters in physcs chemistry and biology which in neet sylbuss by your own",
+          "and in neet jee pyq section put pyq by your own ... year wise from 2025 to 2000"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The chapter list for each subject (Physics/Chemistry/Biology) is no longer empty on a fresh deployment and includes a reasonable NEET syllabus-aligned set of chapters with sequence values for deterministic ordering.",
+        "The system contains PYQ questions tagged with years covering 2025 down to 2000 for NEET PYQ and JEE PYQ categories (as provided by seeded data).",
+        "Seed logic is idempotent (running it multiple times does not create duplicate chapters/questions).",
+        "All seeded questions render correctly in practice mode (valid options A–D, correct option, and English explanation text present or empty-string but not null)."
       ]
     }
   ],
   "constraints": [
-    "Use English for any user-facing text.",
-    "Live name/domain must be 5–50 characters and contain only letters, numbers, and hyphens; no spaces."
+    "Use English for any user-facing text added or modified in the UI.",
+    "Backend must remain a single Motoko actor in backend/main.mo; only introduce backend/migration.mo changes if required for state compatibility.",
+    "Do not edit files under frontend/src/components/ui or other immutablePaths listed in SYSTEM_CONTEXT; compose existing UI components instead.",
+    "Do not use external databases or third-party AI/LLM service integrations to fetch questions; all seeded content must be embedded/created within the app codebase."
   ],
   "nonGoals": [
-    "Implementing new app features unrelated to publishing.",
-    "Changing backend or frontend functionality unless required for Live publishing."
+    "Implementing third-party authentication providers (only Internet Identity is supported).",
+    "Adding real-time multiplayer or WebSocket-based features.",
+    "Building an admin CMS beyond the existing contributor/admin patterns (unless strictly required for seeding and viewing year-wise PYQs)."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
   }
 }
