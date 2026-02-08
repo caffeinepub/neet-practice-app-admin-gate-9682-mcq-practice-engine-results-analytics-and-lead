@@ -20,7 +20,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, ArrowRight, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Subject, Category, QuestionAttempt, Question, PracticeProgressKey } from '../backend';
-import { loadPracticeProgress, savePracticeProgress as saveLocalProgress, StoredAnswer } from '../utils/practiceProgressStorage';
+import { loadPracticeProgress, savePracticeProgress as saveLocalProgress, StoredAnswer, clearProgress } from '../utils/practiceProgressStorage';
 
 interface PracticeSearchParams {
   subject: Subject;
@@ -143,21 +143,108 @@ export default function PracticePage() {
     return (
       <MobilePage maxWidth="md">
         <div className="space-y-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate({ to: '/subject' })}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() =>
+                navigate({
+                  to: '/chapter/$subject/$chapterId/category',
+                  params: { subject, chapterId },
+                })
+              }
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold">No Questions Available</h1>
+              <p className="text-sm text-muted-foreground">This selection has no questions yet</p>
+            </div>
+          </div>
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>No questions available for this selection.</AlertDescription>
+            <AlertDescription>
+              No questions are available for this chapter and category combination. Please go back and select a
+              different option.
+            </AlertDescription>
           </Alert>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() =>
+                navigate({
+                  to: '/chapter/$subject/$chapterId/category',
+                  params: { subject, chapterId },
+                })
+              }
+            >
+              Go Back
+            </Button>
+            <Button onClick={() => navigate({ to: '/subject' })}>Choose Another Subject</Button>
+          </div>
         </div>
       </MobilePage>
     );
   }
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const currentAnswer = answers.get(currentQuestionIndex);
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+  // Clamp current question index to valid range
+  const safeCurrentIndex = Math.max(0, Math.min(currentQuestionIndex, questions.length - 1));
+  const currentQuestion = questions[safeCurrentIndex];
+
+  // Handle missing question gracefully
+  if (!currentQuestion) {
+    return (
+      <MobilePage maxWidth="md">
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate({ to: '/subject' })}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold">Something Went Wrong</h1>
+              <p className="text-sm text-muted-foreground">Unable to load the current question</p>
+            </div>
+          </div>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              The question you're trying to view could not be found. This might be due to outdated progress data.
+            </AlertDescription>
+          </Alert>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Clear local progress
+                clearProgress(subject, chapterId, category, year);
+                // Reset to first question
+                setCurrentQuestionIndex(0);
+                setAnswers(new Map());
+                reset();
+                start();
+                toast.success('Progress reset. Starting from the beginning.');
+              }}
+            >
+              Restart Practice
+            </Button>
+            <Button
+              onClick={() =>
+                navigate({
+                  to: '/chapter/$subject/$chapterId/category',
+                  params: { subject, chapterId },
+                })
+              }
+            >
+              Go Back
+            </Button>
+          </div>
+        </div>
+      </MobilePage>
+    );
+  }
+
+  const currentAnswer = answers.get(safeCurrentIndex);
+  const progress = ((safeCurrentIndex + 1) / questions.length) * 100;
   const answeredCount = answers.size;
 
   const handleOptionSelect = (option: string) => {
@@ -169,7 +256,7 @@ export default function PracticePage() {
     };
 
     const newAnswers = new Map(answers);
-    newAnswers.set(currentQuestionIndex, newAnswer);
+    newAnswers.set(safeCurrentIndex, newAnswer);
     setAnswers(newAnswers);
 
     if (!isAuthenticated) {
@@ -180,13 +267,13 @@ export default function PracticePage() {
           timeTaken: Number(ans.timeTaken),
         };
       });
-      saveLocalProgress(subject, chapterId, category, currentQuestionIndex, answersObj, year);
+      saveLocalProgress(subject, chapterId, category, safeCurrentIndex, answersObj, year);
     }
   };
 
   const handleNext = async () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      const nextIndex = currentQuestionIndex + 1;
+    if (safeCurrentIndex < questions.length - 1) {
+      const nextIndex = safeCurrentIndex + 1;
       setCurrentQuestionIndex(nextIndex);
       reset();
       start();
@@ -217,8 +304,8 @@ export default function PracticePage() {
   };
 
   const handlePrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    if (safeCurrentIndex > 0) {
+      setCurrentQuestionIndex(safeCurrentIndex - 1);
       reset();
       start();
     }
@@ -247,10 +334,13 @@ export default function PracticePage() {
     try {
       const attempts: QuestionAttempt[] = Array.from(answers.values()).map((answer) => {
         const question = questions.find((q) => q.id === answer.questionId);
+        if (!question) {
+          throw new Error(`Question with ID ${answer.questionId} not found`);
+        }
         return {
           questionId: answer.questionId,
           chosenOption: answer.selectedOption || '',
-          isCorrect: answer.selectedOption === question?.correctOption,
+          isCorrect: answer.selectedOption === question.correctOption,
           timeTaken: answer.timeTaken,
         };
       });
@@ -303,7 +393,7 @@ export default function PracticePage() {
 
         <QuestionNavigator
           totalQuestions={questions.length}
-          currentIndex={currentQuestionIndex}
+          currentIndex={safeCurrentIndex}
           answeredQuestions={new Set(Array.from(answers.keys()))}
           onNavigate={handleQuestionNavigate}
         />
@@ -312,7 +402,7 @@ export default function PracticePage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardDescription>
-                Question {currentQuestionIndex + 1} of {questions.length}
+                Question {safeCurrentIndex + 1} of {questions.length}
               </CardDescription>
               <Badge>{category}</Badge>
             </div>
@@ -353,12 +443,12 @@ export default function PracticePage() {
         </Card>
 
         <div className="flex items-center justify-between gap-4">
-          <Button variant="outline" onClick={handlePrevious} disabled={currentQuestionIndex === 0}>
+          <Button variant="outline" onClick={handlePrevious} disabled={safeCurrentIndex === 0}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Previous
           </Button>
 
-          {currentQuestionIndex === questions.length - 1 ? (
+          {safeCurrentIndex === questions.length - 1 ? (
             <Button onClick={handleSubmit} disabled={isSubmitting || !isAuthenticated} className="flex-1">
               {isSubmitting ? (
                 <>

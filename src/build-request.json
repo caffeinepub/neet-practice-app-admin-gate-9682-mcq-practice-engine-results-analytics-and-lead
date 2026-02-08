@@ -1,80 +1,119 @@
 {
   "kind": "build_request",
-  "title": "Fix PDF import fidelity (symbols/formatting/figures) and add delete-question option",
-  "priority": "normal",
+  "title": "Remove PDF upload, keep existing questions across updates, and fix student question open error",
+  "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Improve PDF-to-question extraction so imported questions preserve all Unicode symbols (e.g., λ, π), line breaks, and spacing as closely as possible to the source PDF; ensure the preview and the saved question content match exactly what was extracted (no normalization that removes symbols or collapses whitespace).",
+      "text": "Remove the PDF upload/import section from Contributor mode and revert the Contributor UI to manual question creation/editing only (no PDF upload button, no PDF import tabs/mode, no extracted preview list, and no bulk-save flow).",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-6",
-          "msg-11"
+          "msg-user-latest"
         ],
         "quotes": [
-          "Why question show something wrong please open them and when I upload it does not include sylbols of Lambda  Pi like symbols and all other please include in question everything which is in PDF including symbols different figures exactly like which is in PDF",
-          "Ok retry it and make it happen"
+          "Remove this pdf upload section make it like It was before"
         ]
       },
       "acceptanceCriteria": [
-        "Importing a PDF containing λ, π, and other special characters shows those characters correctly in the import preview.",
-        "After saving, the same characters and formatting (line breaks and spacing) appear identically anywhere the question is displayed (e.g., contributor view, practice flow, results review).",
-        "If a PDF has no extractable text, the user sees a clear error message indicating the PDF is scanned/image-only and cannot be imported as text."
+        "Contributor page no longer renders any PDF upload controls (including file input, PDF import mode toggle/tabs, or PdfImportPreviewList).",
+        "Contributor page still supports manual question creation, editing, and deletion exactly as before (no broken imports or runtime errors).",
+        "No user-facing text about PDF import remains in Contributor mode."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Update PDF import to include figures/diagrams from the PDF in the imported questions so that questions display figures as part of the question content as closely as possible to the original PDF; figures must be visible in the import preview and after saving when viewing/practicing the question.",
-      "target": "both",
+      "text": "Fix the backend bulk question creation logic so that newly created question IDs returned by the bulk-create endpoint correspond exactly to the IDs actually stored in the questions map (preventing downstream 'question not found' / mismatch errors when opening questions).",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-6",
-          "msg-11"
+          "msg-user-latest"
         ],
         "quotes": [
-          "please include in question everything which is in PDF including symbols different figures exactly like which is in PDF",
-          "Ok retry it and make it happen"
+          "And when I open question it show something went wrong please resolve it"
         ]
       },
       "acceptanceCriteria": [
-        "If a question in the source PDF includes a figure/diagram, the imported question preview includes that figure/diagram.",
-        "After saving, the question continues to display the figure/diagram in the same question wherever it is rendered in the app.",
-        "Figure handling does not break import for PDFs without figures (those imports still work as before)."
+        "When calling the bulk-create method, every returned ID maps to an existing question retrievable by chapter/year queries.",
+        "Opening questions that were created via any creation path does not fail due to missing/incorrect IDs."
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Add a delete option for questions in the question management UI, wired to the existing backend deleteQuestion function, with a confirmation step and automatic refresh of question lists after deletion; only admins should be allowed to perform deletion and non-admins must not be shown a working delete control.",
+      "text": "Ensure the Student/Practice question view never shows the global “Something went wrong” error due to missing questions or invalid indices/IDs; instead, handle these cases gracefully with an English, user-friendly empty/error state and safe navigation back to selection pages.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-7",
-          "msg-11"
+          "msg-user-latest"
         ],
         "quotes": [
-          "Also make a option of deleting the questions",
-          "Ok retry it and make it happen"
+          "when I open question in student section it shows something went wrong"
         ]
       },
       "acceptanceCriteria": [
-        "Admins can delete a question via the UI and the question is removed from the list without requiring a full page reload.",
-        "A confirmation prompt is shown before permanently deleting a question.",
-        "Non-admin users cannot successfully delete questions (and do not see an enabled delete control)."
+        "If the selected chapter/year/category returns zero questions, the Practice page shows an in-page alert (not the global error screen) and provides a working back navigation action.",
+        "If a stored progress index points past the available questions length, the Practice page clamps safely (no crash).",
+        "No render-time exceptions occur in Practice flow when a question referenced in local/server progress cannot be found; the UI stays usable and instructs the user to restart or go back."
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Ensure that future deployments/upgrades do not delete previously created questions (and related core data like chapters) by preserving actor state across upgrades; update/introduce migration/upgrade handling as needed under the project’s conditional migration policy.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-user-latest"
+        ],
+        "quotes": [
+          "on further updates don't delete old questions"
+        ]
+      },
+      "acceptanceCriteria": [
+        "After an upgrade, chapters and questions created before the upgrade are still present and returned by list/get queries.",
+        "ID counters (e.g., nextQuestionId) continue from the correct next value after an upgrade (no overwrites/collisions).",
+        "If migration logic is required due to any data-shape change, it is applied without dropping existing records."
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "text": "Show only the questions the user/admin has added (i.e., do not display any PDF-import/extracted question set in Student views), aligned with the removal of PDF import; ensure question listing in student flows is based only on the persisted question set and does not include any transient extracted preview data.",
+      "target": "both",
+      "source": {
+        "messageIds": [
+          "msg-user-latest"
+        ],
+        "quotes": [
+          "show only those question which I added"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Student flows (chapter/year practice) source questions only from backend queries and never from any PDF-extraction preview state.",
+        "If any PDF-import-specific path previously caused questions to appear unexpectedly in Student mode, it is removed/disabled so only the intended persisted questions are shown."
       ]
     }
   ],
   "constraints": [
-    "Do not edit files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useInternetIdentity.tsx, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or anything under frontend/src/components/ui (compose these components instead).",
-    "Backend must remain a single Motoko actor in backend/main.mo; only introduce backend state migrations if strictly required by data model changes."
+    "Backend must remain a single Motoko actor in backend/main.mo (no additional backend services).",
+    "Frontend files under frontend/src/components/ui and the listed immutable hook/entry paths must not be edited; compose them instead.",
+    "Use English for all user-facing text."
   ],
   "nonGoals": [
-    "Adding third-party OCR or external services to extract text/figures from scanned PDFs.",
-    "Implementing real-time collaboration or chat around questions.",
-    "Changing authentication providers (must remain Internet Identity)."
+    "Improving PDF parsing fidelity, figures/symbol extraction, or PDF solution mapping.",
+    "Adding new authentication methods beyond Internet Identity.",
+    "Adding real-time features (WebSockets/chat/notifications)."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
   }
 }

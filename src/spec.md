@@ -1,12 +1,13 @@
 # Specification
 
 ## Summary
-**Goal:** Make PDF-imported questions faithfully preserve symbols/formatting and include PDF figures, and add an admin-only delete option in question management.
+**Goal:** Remove PDF import from Contributor mode, ensure questions persist across upgrades, and fix “Something went wrong” errors in Student/Practice caused by missing/mismatched question IDs.
 
 **Planned changes:**
-- Improve PDF-to-question extraction to preserve Unicode symbols (e.g., λ, π), line breaks, and spacing without normalizing away characters or collapsing whitespace; ensure import preview and saved question content match exactly.
-- Add handling to include figures/diagrams from PDFs in imported question content so figures appear in the import preview and continue to render after saving wherever the question is shown.
-- Show a clear error message when a PDF contains no extractable text (scanned/image-only) and cannot be imported as text.
-- Add an admin-only delete action in the question management UI wired to the existing `deleteQuestion` backend function, including a confirmation prompt and automatic list refresh after deletion.
+- Remove all PDF upload/import UI and related flows from Contributor mode, restoring manual question create/edit/delete only.
+- Fix backend bulk-create so returned question IDs always match the IDs stored and retrievable via normal queries.
+- Update Student/Practice flow to handle empty question sets, invalid saved progress indices, and missing questions gracefully with an in-page English message and safe back navigation (no global error screen).
+- Preserve existing chapters/questions and ID counters across backend upgrades by ensuring actor state is retained and migrated when needed.
+- Ensure Student views list and practice only persisted questions from backend queries (no PDF-extraction/preview data paths).
 
-**User-visible outcome:** Importing questions from PDFs preserves special symbols and formatting and includes any figures/diagrams in both preview and saved questions; admins can delete questions from the management UI with confirmation and see the list update immediately, while non-admins cannot delete.
+**User-visible outcome:** Contributors can only add/edit questions manually (no PDF import). Students can open and practice questions without hitting a global error screen; if no questions exist or progress is invalid, they see a clear message and can navigate back. Existing questions remain available after future updates, and only admin-added/persisted questions appear in Student mode.

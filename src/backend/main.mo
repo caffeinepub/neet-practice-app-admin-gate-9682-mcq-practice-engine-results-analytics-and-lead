@@ -10,11 +10,12 @@ import Runtime "mo:core/Runtime";
 import Iter "mo:core/Iter";
 import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
+import Migration "migration";
 
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
-import Migration "migration";
 
+// Include persistent migration for core data (questions, chapters, etc.)
 (with migration = Migration.run)
 actor {
   include MixinStorage();
@@ -417,7 +418,7 @@ actor {
     currentId;
   };
 
-  // New bulk-create path for PDF imports
+  // New bulk-create path for PDF imports (fixed return value bug)
   public shared ({ caller }) func createQuestionsBulk(questionsInput : [Question]) : async [Nat] {
     if (not (isContributor(caller) or AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only contributors can create questions");
@@ -430,7 +431,7 @@ actor {
         };
         questions.add(nextQuestionId, newQuestion);
         nextQuestionId += 1;
-        nextQuestionId;
+        newQuestion.id;
       }
     );
 

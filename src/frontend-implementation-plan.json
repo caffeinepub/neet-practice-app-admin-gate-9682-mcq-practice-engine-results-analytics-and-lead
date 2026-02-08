@@ -1,88 +1,87 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "PDF import fidelity improvements (Unicode/whitespace/figures) and admin-only question deletion",
+  "title": "Remove PDF import from Contributor mode and harden Practice flow against missing questions",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Preserve Unicode symbols and PDF formatting (line breaks/spacing) through import preview and saved question content, with a clear error for scanned/image-only PDFs.",
+      "summary": "Remove PDF upload/import UI and bulk-save flow from Contributor mode, leaving only manual question creation/editing/deletion.",
       "acceptanceCriteria": [
-        "Importing a PDF containing λ, π, and other special characters shows those characters correctly in the import preview.",
-        "After saving, the same characters and formatting (line breaks and spacing) appear identically anywhere the question is displayed (e.g., contributor view, practice flow, results review).",
-        "If a PDF has no extractable text, the user sees a clear error message indicating the PDF is scanned/image-only and cannot be imported as text."
+        "Contributor page no longer renders any PDF upload controls (including file input, PDF import mode toggle/tabs, or PdfImportPreviewList).",
+        "Contributor page still supports manual question creation, editing, and deletion exactly as before (no broken imports or runtime errors).",
+        "No user-facing text about PDF import remains in Contributor mode."
       ],
       "file_operations": [
-        {
-          "path": "frontend/src/utils/pdf/pdfTextReconstruction.ts",
-          "operation": "modify",
-          "description": "Adjust whitespace reconstruction to be more faithful to the PDF text items (avoid filtering out whitespace-only items; keep Unicode as-is; keep explicit line breaks and avoid trimming that changes extracted content)."
-        },
-        {
-          "path": "frontend/src/utils/pdf/pdfToQuestions.ts",
-          "operation": "modify",
-          "description": "Remove/limit trimming and other normalization during question splitting/parsing so the extracted text (including symbols, line breaks, and spacing) is preserved consistently from extraction -> preview -> save; keep/extend the existing 'no selectable text' error messaging for scanned/image-only PDFs."
-        },
-        {
-          "path": "frontend/src/components/contributor/PdfImportPreviewList.tsx",
-          "operation": "modify",
-          "description": "Ensure preview rendering continues to display extracted content without normalization (e.g., keep whitespace-pre-wrap for all relevant fields and avoid any UI-side transformations that could alter symbols/spacing)."
-        },
         {
           "path": "frontend/src/pages/ContributorPage.tsx",
           "operation": "modify",
-          "description": "Ensure the saved question payload uses the exact extracted strings (no additional frontend-side normalization before calling bulk create), and surface the scanned/image-only PDF error clearly (toast/message) when extraction fails."
-        }
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "summary": "Include figures/diagrams from PDFs in imported questions so figures are visible in preview and after saving.",
-      "acceptanceCriteria": [
-        "If a question in the source PDF includes a figure/diagram, the imported question preview includes that figure/diagram.",
-        "After saving, the question continues to display the figure/diagram in the same question wherever it is rendered in the app.",
-        "Figure handling does not break import for PDFs without figures (those imports still work as before)."
-      ],
-      "file_operations": [
+          "description": "Remove all PDF-import-related state, handlers, UI (tabs/mode toggles, file input/button), extracted preview rendering, and bulk-save wiring; ensure manual question CRUD UI remains intact and the page compiles without PdfImportPreviewList/pdfToQuestions imports."
+        },
+        {
+          "path": "frontend/src/components/contributor/PdfImportPreviewList.tsx",
+          "operation": "delete",
+          "description": "Remove the PdfImportPreviewList component since PDF import is no longer supported in Contributor mode."
+        },
         {
           "path": "frontend/src/utils/pdf/pdfjsClient.ts",
-          "operation": "modify",
-          "description": "Extend the PDF.js client utilities to support extracting figure imagery from PDFs on the client (e.g., rendering relevant page regions to images) in a way that can be attached to imported questions."
+          "operation": "delete",
+          "description": "Remove PDF.js client utilities since PDF import is no longer supported in the app."
+        },
+        {
+          "path": "frontend/src/utils/pdf/pdfSolutionMapping.ts",
+          "operation": "delete",
+          "description": "Remove PDF solution mapping utilities since PDF import is no longer supported in the app."
+        },
+        {
+          "path": "frontend/src/utils/pdf/pdfTextReconstruction.ts",
+          "operation": "delete",
+          "description": "Remove PDF text reconstruction utilities since PDF import is no longer supported in the app."
         },
         {
           "path": "frontend/src/utils/pdf/pdfToQuestions.ts",
-          "operation": "modify",
-          "description": "Augment extraction to capture figure/diagram images alongside text and return them with extracted question objects (associate figures with the right question based on page/position heuristics; keep behavior unchanged for PDFs with no figures)."
-        },
-        {
-          "path": "frontend/src/components/contributor/PdfImportPreviewList.tsx",
-          "operation": "modify",
-          "description": "Render extracted figure/diagram images inside the question preview cards so users can verify figures before saving."
-        },
-        {
-          "path": "frontend/src/pages/ContributorPage.tsx",
-          "operation": "modify",
-          "description": "When saving bulk-imported questions, upload/attach extracted figure/diagram images to the question create payload using the blob-storage ExternalBlob representation. Use the blob-storage component capability (ExternalBlob.fromBytes / getDirectURL) to store and display images; Verify the component's usage instructions before implementing."
+          "operation": "delete",
+          "description": "Remove PDF-to-questions extraction logic since PDF import is no longer supported in the app."
         }
       ]
     },
     {
       "id": "REQ-3",
-      "summary": "Add an admin-only delete control in question management with confirmation and list refresh, wired to the existing deleteQuestion backend function.",
+      "summary": "Prevent Practice flow crashes and global error screens by handling empty question sets, invalid indices, and missing question references with a friendly in-page state and safe navigation.",
       "acceptanceCriteria": [
-        "Admins can delete a question via the UI and the question is removed from the list without requiring a full page reload.",
-        "A confirmation prompt is shown before permanently deleting a question.",
-        "Non-admin users cannot successfully delete questions (and do not see an enabled delete control)."
+        "If the selected chapter/year/category returns zero questions, the Practice page shows an in-page alert (not the global error screen) and provides a working back navigation action.",
+        "If a stored progress index points past the available questions length, the Practice page clamps safely (no crash).",
+        "No render-time exceptions occur in Practice flow when a question referenced in local/server progress cannot be found; the UI stays usable and instructs the user to restart or go back."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/hooks/useQueries.ts",
+          "path": "frontend/src/pages/PracticePage.tsx",
           "operation": "modify",
-          "description": "Add a React Query hook to determine whether the caller is an admin (using the existing backend isCallerAdmin capability) and ensure deletion-related queries invalidate/refresh question lists after successful deletion."
+          "description": "Add defensive guards to avoid rendering with an undefined current question (e.g., clamp currentQuestionIndex whenever questions change, and show a friendly in-page error/empty state with working navigation back to the chapter category selection); ensure submission logic handles missing question lookups without runtime errors and provides a restart/go-back action in English."
         },
         {
-          "path": "frontend/src/pages/ContributorPage.tsx",
+          "path": "frontend/src/utils/practiceProgressStorage.ts",
           "operation": "modify",
-          "description": "Add a delete action to the question list UI that is only shown/enabled for admins; use a confirmation step (compose existing shadcn/ui dialog/alert-dialog components) and call the existing useDeleteQuestion mutation, then refresh the list via query invalidation."
+          "description": "Add a small utility to clear/reset stored anonymous practice progress for a given (subject/chapter/category/year) key, so PracticePage can offer a safe 'Restart' action when local progress is invalid."
+        }
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "summary": "Ensure Student flows only display persisted questions from backend queries and never include any PDF-import transient preview data.",
+      "acceptanceCriteria": [
+        "Student flows (chapter/year practice) source questions only from backend queries and never from any PDF-extraction preview state.",
+        "If any PDF-import-specific path previously caused questions to appear unexpectedly in Student mode, it is removed/disabled so only the intended persisted questions are shown."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/PracticePage.tsx",
+          "operation": "modify",
+          "description": "Confirm PracticePage continues to derive its question list exclusively from backend queries (chapter/year queries) and remove/avoid any reliance on PDF-extraction/transient state; keep all user-facing text in English."
+        },
+        {
+          "path": "frontend/src/pages/ChapterCategorySelectPage.tsx",
+          "operation": "modify",
+          "description": "Ensure category availability and year selection are computed only from chapter questions fetched from the backend, with no references to any PDF-import/extracted preview data."
         }
       ]
     }

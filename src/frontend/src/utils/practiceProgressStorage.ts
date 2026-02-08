@@ -66,6 +66,10 @@ export function savePracticeProgress(
   }
 }
 
+/**
+ * Clear stored progress for a specific practice session.
+ * Useful when progress becomes invalid or user wants to restart.
+ */
 export function clearProgress(
   subject: string,
   chapterId: string,

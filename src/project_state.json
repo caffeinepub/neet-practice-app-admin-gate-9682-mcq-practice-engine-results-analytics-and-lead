@@ -1,35 +1,34 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "App that extracts questions/solutions from uploaded PDFs and displays/saves them; needs accurate rendering matching the PDF (symbols, formatting, figures) and question management (delete).",
+  "summary": "Question management app with a student section: remove the PDF upload section, display only manually added questions, preserve previously added questions across updates, and fix the student question view error (“Something went wrong”).",
   "architectural_notes": [],
   "known_issues": [
-    "Uploaded PDFs are not fully preserved: special symbols (λ, π, etc.), exact formatting, and figures are missing/incorrect in displayed/saved questions.",
-    "Previous build attempt to apply the PDF fidelity + delete option changes failed; fixes not deployed yet."
+    "Student section shows “Something went wrong” when opening a question."
   ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-improve-pdf-to-question-extraction-so-imported-questions-preserve-all-unicode-symbols-e-g-line-breaks-and-spacing-as-closely-as-possible-to-the-source-pdf-ensure-the-preview-and-the-saved-question-content-match-exactly-what-was-extracted-no-normalization-that-removes-symbols-or-collapses-whitespace",
-      "title": "Improve PDF-to-question extraction so imported questions preserve all Unicode symbols (e.g., λ, π), line breaks, and spacing as closely as possible to the source PDF; ensure the preview and the saved question content match exactly what was extracted (no normalization that removes symbols or collapses whitespace).",
+      "id": "feature-remove-the-pdf-upload-import-section-from-contributor-mode-and-revert-the-contributor-ui-to-manual-question-creation-editing-only-no-pdf-upload-button-no-pdf-import-tabs-mode-no-extracted-preview-list-and-no-bulk-save-flow",
+      "title": "Remove the PDF upload/import section from Contributor mode and revert the Contributor UI to manual question creation/editing only (no PDF upload button, no PDF import tabs/mode, no extracted preview list, and no bulk-save flow).",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-update-pdf-import-to-include-figures-diagrams-from-the-pdf-in-the-imported-questions-so-that-questions-display-figures-as-part-of-the-question-content-as-closely-as-possible-to-the-original-pdf-figures-must-be-visible-in-the-import-preview-and-after-saving-when-viewing-practicing-the-question",
-      "title": "Update PDF import to include figures/diagrams from the PDF in the imported questions so that questions display figures as part of the question content as closely as possible to the original PDF; figures must be visible in the import preview and after saving when viewing/practicing the question.",
+      "id": "feature-ensure-the-student-practice-question-view-never-shows-the-global-something-went-wrong-error-due-to-missing-questions-or-invalid-indices-ids-instead-handle-these-cases-gracefully-with-an-english-user-friendly-empty-error-state-and-safe-navigation-back-to-selection-pages",
+      "title": "Ensure the Student/Practice question view never shows the global “Something went wrong” error due to missing questions or invalid indices/IDs; instead, handle these cases gracefully with an English, user-friendly empty/error state and safe navigation back to selection pages.",
       "reqIds": [
-        "REQ-2"
+        "REQ-3"
       ],
       "version": 1
     },
     {
-      "id": "feature-add-a-delete-option-for-questions-in-the-question-management-ui-wired-to-the-existing-backend-deletequestion-function-with-a-confirmation-step-and-automatic-refresh-of-question-lists-after-deletion-only-admins-should-be-allowed-to-perform-deletion-and-non-admins-must-not-be-shown-a-working-delete-control",
-      "title": "Add a delete option for questions in the question management UI, wired to the existing backend deleteQuestion function, with a confirmation step and automatic refresh of question lists after deletion; only admins should be allowed to perform deletion and non-admins must not be shown a working delete control.",
+      "id": "feature-show-only-the-questions-the-user-admin-has-added-i-e-do-not-display-any-pdf-import-extracted-question-set-in-student-views-aligned-with-the-removal-of-pdf-import-ensure-question-listing-in-student-flows-is-based-only-on-the-persisted-question-set-and-does-not-include-any-transient-extracted-preview-data",
+      "title": "Show only the questions the user/admin has added (i.e., do not display any PDF-import/extracted question set in Student views), aligned with the removal of PDF import; ensure question listing in student flows is based only on the persisted question set and does not include any transient extracted preview data.",
       "reqIds": [
-        "REQ-3"
+        "REQ-5"
       ],
       "version": 1
     }
@@ -37,18 +36,46 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Fix PDF extraction/rendering so questions include all symbols (e.g., λ, π), preserve exact formatting, and include figures exactly as in the source PDF",
+      "summary": "Remove the PDF upload section and revert UI to the previous state (no PDF upload).",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "Add an option to delete questions from the question list (admin delete button wired to backend deleteQuestion)",
+      "summary": "Show only the questions that the admin/user manually added (exclude PDF-extracted/imported questions).",
       "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Ensure existing/old questions are not deleted on future updates (persist questions across releases/migrations).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Fix the student section error when opening a question (shows “Something went wrong”).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Fix the backend bulk question creation logic so that newly created question IDs returned by the bulk-create endpoint correspond exactly to the IDs actually stored in the questions map (preventing downstream 'question not found' / mismatch errors when opening questions).",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-8",
+      "summary": "Ensure that future deployments/upgrades do not delete previously created questions (and related core data like chapters) by preserving actor state across upgrades; update/introduce migration/upgrade handling as needed under the project’s conditional migration policy.",
+      "reqIds": [
+        "REQ-4"
+      ],
       "status": "pending"
     }
   ],
-  "projectName": "Fix PDF import fidelity (symbols/formatting/figures) and add delete-question option",
+  "projectName": "Remove PDF upload, keep existing questions across updates, and fix student question open error",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

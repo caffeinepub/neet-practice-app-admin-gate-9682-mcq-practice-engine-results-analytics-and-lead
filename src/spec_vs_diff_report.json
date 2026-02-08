@@ -1,43 +1,60 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-08T16:15:05.143Z",
-  "summary": "Diff adds PDF.js-based text reconstruction to better preserve Unicode and whitespace, introduces optional question/explanation image fields with a backend migration, updates PDF import preview to display an extracted image when present, and begins wiring admin-aware question deletion (hooks and UI state). However, based on the provided truncated diff summary, some acceptance-criteria behaviors (notably figures persisting/being rendered after save, and complete admin-only delete UI behavior) are not fully evidenced.",
+  "generatedAt": "2026-02-08T17:09:07.119Z",
+  "summary": "Diff adds backend migration wiring and updates PracticePage with more defensive handling, but does not provide clear evidence that PDF import UI was fully removed from Contributor mode or that the backend bulk-create ID mismatch was fixed. Several PDF-related frontend utilities and the PdfImportPreviewList component still exist/are modified, suggesting incomplete removal.",
   "missing_requirements": [
     {
-      "id": "REQ-2",
-      "requirement": "Include figures/diagrams from the PDF in imported questions; figures must be visible in the import preview and after saving wherever the question is rendered; importing PDFs without figures must still work.",
-      "reason": "Preview rendering for an image is present and backend state supports storing images, but the diff summary does not show (a) reliable extraction/assignment of per-question figures (only a helper to render a full page to PNG is shown; mapping to questions is truncated), nor (b) rendering of saved question images in the general question views/practice/results. The AC requires figures remain visible after saving across the app.",
+      "id": "REQ-1",
+      "requirement": "Remove the PDF upload/import section from Contributor mode and revert the Contributor UI to manual question creation/editing only (no PDF upload button, no PDF import tabs/mode, no extracted preview list, and no bulk-save flow).",
+      "reason": "The diff still includes the PdfImportPreviewList component as a modified file, and the truncated ContributorPage change does not conclusively show removal of all PDF-import UI/flows.",
       "evidence": [
         "frontend/src/components/contributor/PdfImportPreviewList.tsx",
-        "frontend/src/utils/pdf/pdfToQuestions.ts",
-        "backend/main.mo",
-        "backend/migration.mo",
-        "frontend-file-summaries.txt"
+        "frontend/src/pages/ContributorPage.tsx"
       ]
     },
     {
-      "id": "REQ-3",
-      "requirement": "Add an admin-only delete option for questions in question management UI, wired to existing backend deleteQuestion, with confirmation and automatic refresh after deletion; non-admins must not have a working/enabled delete control.",
-      "reason": "The diff shows new delete-dialog state and the presence of admin-check hook usage, but the truncated summary does not clearly show the actual delete control being rendered, gated by admin status, invoking deleteQuestion, and triggering a list refresh (e.g., react-query invalidation). Non-admin behavior is also not evidenced in the provided snippets.",
+      "id": "REQ-2",
+      "requirement": "Fix the backend bulk question creation logic so that newly created question IDs returned by the bulk-create endpoint correspond exactly to the IDs actually stored in the questions map.",
+      "reason": "backend/main.mo is truncated and the diff summary does not show any specific changes to a bulk-create endpoint or to ID assignment/return logic; cannot confirm the mismatch fix was implemented.",
       "evidence": [
-        "frontend/src/pages/ContributorPage.tsx",
-        "frontend/src/hooks/useQueries.ts"
+        "backend/main.mo (truncated)",
+        "frontend-file-summaries.txt (mentions bulk creation hooks, but not backend fix)"
       ]
     }
   ],
-  "hallucinated_features": [],
+  "hallucinated_features": [
+    {
+      "description": "Continued/expanded PDF-processing utilities on the frontend despite the request to remove PDF import from Contributor mode.",
+      "reason": "Multiple PDF-related utility files are present in the modified list, which is not aligned with a strict removal of the PDF import feature and is not requested by any REQ.",
+      "evidence": [
+        "frontend/src/utils/pdf/pdfjsClient.ts",
+        "frontend/src/utils/pdf/pdfSolutionMapping.ts",
+        "frontend/src/utils/pdf/pdfTextReconstruction.ts",
+        "frontend/src/utils/pdf/pdfToQuestions.ts"
+      ]
+    },
+    {
+      "description": "Added/retained a Contributor PDF import preview component file update.",
+      "reason": "REQ-1 calls for removing extracted preview list UI (PdfImportPreviewList) from Contributor mode; modifying this component suggests unrequested ongoing support rather than removal.",
+      "evidence": [
+        "frontend/src/components/contributor/PdfImportPreviewList.tsx"
+      ]
+    }
+  ],
   "confidence": 0.62,
   "changed_files": [
     "backend/main.mo",
     "backend/migration.mo",
     "frontend-file-summaries.txt",
     "frontend/src/components/contributor/PdfImportPreviewList.tsx",
-    "frontend/src/hooks/useQueries.ts",
     "frontend/src/pages/ContributorPage.tsx",
+    "frontend/src/pages/PracticePage.tsx",
+    "frontend/src/utils/pdf/pdfSolutionMapping.ts",
     "frontend/src/utils/pdf/pdfTextReconstruction.ts",
     "frontend/src/utils/pdf/pdfToQuestions.ts",
     "frontend/src/utils/pdf/pdfjsClient.ts",
+    "frontend/src/utils/practiceProgressStorage.ts",
     "project_state.json"
   ]
 }

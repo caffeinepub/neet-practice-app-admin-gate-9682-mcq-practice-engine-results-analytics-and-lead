@@ -2,13 +2,15 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-improve-pdf-to-question-extraction-so-imported-questions-preserve-all-unicode-symbols-e-g-line-breaks-and-spacing-as-closely-as-possible-to-the-source-pdf-ensure-the-preview-and-the-saved-question-content-match-exactly-what-was-extracted-no-normalization-that-removes-symbols-or-collapses-whitespace",
-      "featureTitle": "Improve PDF-to-question extraction so imported questions preserve all Unicode symbols (e.g., λ, π), line breaks, and spacing as closely as possible to the source PDF; ensure the preview and the saved question content match exactly what was extracted (no normalization that removes symbols or collapses whitespace).",
+      "featureId": "feature-remove-the-pdf-upload-import-section-from-contributor-mode-and-revert-the-contributor-ui-to-manual-question-creation-editing-only-no-pdf-upload-button-no-pdf-import-tabs-mode-no-extracted-preview-list-and-no-bulk-save-flow",
+      "featureTitle": "Remove the PDF upload/import section from Contributor mode and revert the Contributor UI to manual question creation/editing only (no PDF upload button, no PDF import tabs/mode, no extracted preview list, and no bulk-save flow).",
       "files": [
         "frontend/src/components/contributor/PdfImportPreviewList.tsx",
         "frontend/src/pages/ContributorPage.tsx",
+        "frontend/src/utils/pdf/pdfSolutionMapping.ts",
         "frontend/src/utils/pdf/pdfTextReconstruction.ts",
-        "frontend/src/utils/pdf/pdfToQuestions.ts"
+        "frontend/src/utils/pdf/pdfToQuestions.ts",
+        "frontend/src/utils/pdf/pdfjsClient.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -25,34 +27,11 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-update-pdf-import-to-include-figures-diagrams-from-the-pdf-in-the-imported-questions-so-that-questions-display-figures-as-part-of-the-question-content-as-closely-as-possible-to-the-original-pdf-figures-must-be-visible-in-the-import-preview-and-after-saving-when-viewing-practicing-the-question",
-      "featureTitle": "Update PDF import to include figures/diagrams from the PDF in the imported questions so that questions display figures as part of the question content as closely as possible to the original PDF; figures must be visible in the import preview and after saving when viewing/practicing the question.",
+      "featureId": "feature-ensure-the-student-practice-question-view-never-shows-the-global-something-went-wrong-error-due-to-missing-questions-or-invalid-indices-ids-instead-handle-these-cases-gracefully-with-an-english-user-friendly-empty-error-state-and-safe-navigation-back-to-selection-pages",
+      "featureTitle": "Ensure the Student/Practice question view never shows the global “Something went wrong” error due to missing questions or invalid indices/IDs; instead, handle these cases gracefully with an English, user-friendly empty/error state and safe navigation back to selection pages.",
       "files": [
-        "frontend/src/components/contributor/PdfImportPreviewList.tsx",
-        "frontend/src/pages/ContributorPage.tsx",
-        "frontend/src/utils/pdf/pdfToQuestions.ts",
-        "frontend/src/utils/pdf/pdfjsClient.ts"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "blob-storage@4.0.0"
-      ],
-      "testIds": [
-        "REQ-2"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-add-a-delete-option-for-questions-in-the-question-management-ui-wired-to-the-existing-backend-deletequestion-function-with-a-confirmation-step-and-automatic-refresh-of-question-lists-after-deletion-only-admins-should-be-allowed-to-perform-deletion-and-non-admins-must-not-be-shown-a-working-delete-control",
-      "featureTitle": "Add a delete option for questions in the question management UI, wired to the existing backend deleteQuestion function, with a confirmation step and automatic refresh of question lists after deletion; only admins should be allowed to perform deletion and non-admins must not be shown a working delete control.",
-      "files": [
-        "frontend/src/hooks/useQueries.ts",
-        "frontend/src/pages/ContributorPage.tsx"
+        "frontend/src/pages/PracticePage.tsx",
+        "frontend/src/utils/practiceProgressStorage.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -65,6 +44,26 @@
       ],
       "testIds": [
         "REQ-3"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-show-only-the-questions-the-user-admin-has-added-i-e-do-not-display-any-pdf-import-extracted-question-set-in-student-views-aligned-with-the-removal-of-pdf-import-ensure-question-listing-in-student-flows-is-based-only-on-the-persisted-question-set-and-does-not-include-any-transient-extracted-preview-data",
+      "featureTitle": "Show only the questions the user/admin has added (i.e., do not display any PDF-import/extracted question set in Student views), aligned with the removal of PDF import; ensure question listing in student flows is based only on the persisted question set and does not include any transient extracted preview data.",
+      "files": [
+        "frontend/src/pages/PracticePage.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "blob-storage@4.0.0"
+      ],
+      "testIds": [
+        "REQ-5"
       ],
       "confidence": "high"
     }

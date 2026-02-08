@@ -1,84 +1,92 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-08T16:15:05.145Z",
+  "generatedAt": "2026-02-08T17:09:07.122Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 3,
+    "total": 5,
     "implemented": 3,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Improve PDF-to-question extraction so imported questions preserve all Unicode symbols (e.g., λ, π), line breaks, and spacing as closely as possible to the source PDF; ensure the preview and the saved question content match exactly what was extracted (no normalization that removes symbols or collapses whitespace).",
+        "summary": "Remove the PDF upload/import section from Contributor mode and revert the Contributor UI to manual question creation/editing only (no PDF upload button, no PDF import tabs/mode, no extracted preview list, and no bulk-save flow).",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/utils/pdf/pdfTextReconstruction.ts",
-          "frontend/src/utils/pdf/pdfToQuestions.ts",
+          "frontend/src/pages/ContributorPage.tsx",
           "frontend/src/components/contributor/PdfImportPreviewList.tsx",
-          "frontend/src/pages/ContributorPage.tsx"
+          "frontend/src/utils/pdf/pdfjsClient.ts",
+          "frontend/src/utils/pdf/pdfSolutionMapping.ts",
+          "frontend/src/utils/pdf/pdfTextReconstruction.ts",
+          "frontend/src/utils/pdf/pdfToQuestions.ts"
         ],
         "matchedFiles": [
-          "frontend/src/utils/pdf/pdfTextReconstruction.ts",
-          "frontend/src/utils/pdf/pdfToQuestions.ts",
+          "frontend/src/pages/ContributorPage.tsx",
           "frontend/src/components/contributor/PdfImportPreviewList.tsx",
-          "frontend/src/pages/ContributorPage.tsx"
+          "frontend/src/utils/pdf/pdfjsClient.ts",
+          "frontend/src/utils/pdf/pdfSolutionMapping.ts",
+          "frontend/src/utils/pdf/pdfTextReconstruction.ts",
+          "frontend/src/utils/pdf/pdfToQuestions.ts"
         ]
       },
       {
         "id": "REQ-2",
-        "summary": "Update PDF import to include figures/diagrams from the PDF in the imported questions so that questions display figures as part of the question content as closely as possible to the original PDF; figures must be visible in the import preview and after saving when viewing/practicing the question.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/utils/pdf/pdfjsClient.ts",
-          "frontend/src/utils/pdf/pdfToQuestions.ts",
-          "frontend/src/components/contributor/PdfImportPreviewList.tsx",
-          "frontend/src/pages/ContributorPage.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/utils/pdf/pdfjsClient.ts",
-          "frontend/src/utils/pdf/pdfToQuestions.ts",
-          "frontend/src/components/contributor/PdfImportPreviewList.tsx",
-          "frontend/src/pages/ContributorPage.tsx"
-        ]
+        "summary": "Fix the backend bulk question creation logic so that newly created question IDs returned by the bulk-create endpoint correspond exactly to the IDs actually stored in the questions map (preventing downstream 'question not found' / mismatch errors when opening questions).",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       },
       {
         "id": "REQ-3",
-        "summary": "Add a delete option for questions in the question management UI, wired to the existing backend deleteQuestion function, with a confirmation step and automatic refresh of question lists after deletion; only admins should be allowed to perform deletion and non-admins must not be shown a working delete control.",
+        "summary": "Ensure the Student/Practice question view never shows the global “Something went wrong” error due to missing questions or invalid indices/IDs; instead, handle these cases gracefully with an English, user-friendly empty/error state and safe navigation back to selection pages.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/pages/ContributorPage.tsx"
+          "frontend/src/pages/PracticePage.tsx",
+          "frontend/src/utils/practiceProgressStorage.ts"
         ],
         "matchedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/pages/ContributorPage.tsx"
+          "frontend/src/pages/PracticePage.tsx",
+          "frontend/src/utils/practiceProgressStorage.ts"
+        ]
+      },
+      {
+        "id": "REQ-4",
+        "summary": "Ensure that future deployments/upgrades do not delete previously created questions (and related core data like chapters) by preserving actor state across upgrades; update/introduce migration/upgrade handling as needed under the project’s conditional migration policy.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-5",
+        "summary": "Show only the questions the user/admin has added (i.e., do not display any PDF-import/extracted question set in Student views), aligned with the removal of PDF import; ensure question listing in student flows is based only on the persisted question set and does not include any transient extracted preview data.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/PracticePage.tsx",
+          "frontend/src/pages/ChapterCategorySelectPage.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/PracticePage.tsx"
         ]
       }
     ]
   },
   "changedFiles": [
-    "backend/blob-storage/Mixin.mo",
-    "backend/blob-storage/Storage.mo",
     "backend/main.mo",
     "backend/migration.mo",
     "build-request.json",
-    "caffeine.lock.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/backend.d.ts",
-    "frontend/src/backend.ts",
     "frontend/src/components/contributor/PdfImportPreviewList.tsx",
-    "frontend/src/declarations/backend.did.d.ts",
-    "frontend/src/declarations/backend.did.js",
-    "frontend/src/hooks/useQueries.ts",
     "frontend/src/pages/ContributorPage.tsx",
+    "frontend/src/pages/PracticePage.tsx",
+    "frontend/src/utils/pdf/pdfSolutionMapping.ts",
     "frontend/src/utils/pdf/pdfTextReconstruction.ts",
     "frontend/src/utils/pdf/pdfToQuestions.ts",
     "frontend/src/utils/pdf/pdfjsClient.ts",
+    "frontend/src/utils/practiceProgressStorage.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

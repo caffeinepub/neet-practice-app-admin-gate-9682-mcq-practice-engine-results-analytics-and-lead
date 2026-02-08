@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useActor } from '../hooks/useActor';
@@ -11,14 +11,12 @@ import {
   useCreateChapter,
   useUpdateChapter,
   useGetTotalAuthenticatedUsers,
-  useCreateQuestionsBulk,
   useDeleteQuestion,
   useIsCallerAdmin,
 } from '../hooks/useQueries';
 import MobilePage from '../components/layout/MobilePage';
 import ContributorGateCard from '../components/contributor/ContributorGateCard';
 import CanisterConnectionTimeoutCard from '../components/contributor/CanisterConnectionTimeoutCard';
-import PdfImportPreviewList from '../components/contributor/PdfImportPreviewList';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,11 +36,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Plus, Edit, HelpCircle, Loader2, AlertCircle, Users, BookPlus, FileUp, Upload, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Edit, HelpCircle, Loader2, AlertCircle, Users, BookPlus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Subject, Category, Question } from '../backend';
-import { pdfToQuestions, ExtractedQuestion } from '../utils/pdf/pdfToQuestions';
+import { Subject, Category } from '../backend';
 
 const categoryLabels: Record<Category, string> = {
   [Category.level1]: 'Level 1',
@@ -69,12 +65,6 @@ export default function ContributorPage() {
   const [hasAccess, setHasAccess] = useState(false);
   const [accessChecked, setAccessChecked] = useState(false);
 
-  // PDF Import state
-  const [pdfImportMode, setPdfImportMode] = useState<'manual' | 'pdf'>('manual');
-  const [extractedQuestions, setExtractedQuestions] = useState<ExtractedQuestion[]>([]);
-  const [isPdfProcessing, setIsPdfProcessing] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   // Delete confirmation state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [questionToDelete, setQuestionToDelete] = useState<bigint | null>(null);
@@ -91,7 +81,6 @@ export default function ContributorPage() {
   const updateQuestion = useUpdateQuestion();
   const createChapter = useCreateChapter();
   const updateChapter = useUpdateChapter();
-  const createQuestionsBulk = useCreateQuestionsBulk();
   const deleteQuestion = useDeleteQuestion();
 
   const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
@@ -254,82 +243,6 @@ export default function ContributorPage() {
   const filteredChapters = selectedSubject
     ? chapters?.filter((c) => c.subject === selectedSubject) || []
     : [];
-
-  const handlePdfFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.type !== 'application/pdf') {
-      toast.error('Please select a PDF file');
-      return;
-    }
-
-    if (!selectedSubject || !selectedChapterId) {
-      toast.error('Please select a subject and chapter first');
-      return;
-    }
-
-    setIsPdfProcessing(true);
-    try {
-      const year = questionForm.year.trim() ? BigInt(questionForm.year) : null;
-      const questions = await pdfToQuestions(file, questionForm.category, year);
-      setExtractedQuestions(questions);
-      toast.success(`Extracted ${questions.length} questions from PDF`);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to process PDF');
-      console.error('PDF processing error:', error);
-    } finally {
-      setIsPdfProcessing(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleRemoveExtractedQuestion = (index: number) => {
-    setExtractedQuestions((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSaveBulkQuestions = async () => {
-    if (!selectedSubject || !selectedChapterId) {
-      toast.error('Please select a subject and chapter');
-      return;
-    }
-
-    if (extractedQuestions.length === 0) {
-      toast.error('No questions to save');
-      return;
-    }
-
-    try {
-      // Preserve the exact order from extractedQuestions
-      const questionsToCreate: Question[] = extractedQuestions.map((q) => ({
-        id: BigInt(0), // Will be assigned by backend
-        subject: selectedSubject,
-        chapterId: BigInt(selectedChapterId),
-        questionText: q.questionText,
-        optionA: q.optionA,
-        optionB: q.optionB,
-        optionC: q.optionC,
-        optionD: q.optionD,
-        correctOption: q.correctOption,
-        explanation: q.explanation,
-        category: q.category,
-        year: q.year ?? undefined,
-        createdAt: BigInt(0), // Will be assigned by backend
-        questionImage: q.questionImage ?? undefined,
-        explanationImage: undefined,
-      }));
-
-      await createQuestionsBulk.mutateAsync(questionsToCreate);
-      toast.success(`Successfully created ${extractedQuestions.length} questions`);
-      setExtractedQuestions([]);
-      setPdfImportMode('manual');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to save questions');
-    }
-  };
 
   const handleCreateQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -546,35 +459,31 @@ export default function ContributorPage() {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">Contributor Panel</h1>
-            <p className="text-muted-foreground">Add and edit questions</p>
+            <p className="text-muted-foreground">Manage questions and chapters</p>
           </div>
         </div>
 
-        {/* Total Students Card */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-full bg-primary/10">
-                <Users className="w-6 h-6 text-primary" />
+        {!totalUsersLoading && totalUsers !== undefined && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Platform Statistics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold">{totalUsers.toString()}</span>
+                <span className="text-muted-foreground">authenticated users</span>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total students logged in</p>
-                <p className="text-2xl font-bold">
-                  {totalUsersLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin inline" />
-                  ) : (
-                    totalUsers?.toString() || '0'
-                  )}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
             <CardTitle>Select Subject & Chapter</CardTitle>
-            <CardDescription>Choose where to add or edit questions</CardDescription>
+            <CardDescription>Choose a subject and chapter to manage questions</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -601,20 +510,12 @@ export default function ContributorPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Chapter</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={openCreateChapterDialog}
-                    className="h-8"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
+                  <Button variant="ghost" size="sm" onClick={openCreateChapterDialog}>
+                    <BookPlus className="w-4 h-4 mr-2" />
                     New Chapter
                   </Button>
                 </div>
-                <Select
-                  value={selectedChapterId || ''}
-                  onValueChange={setSelectedChapterId}
-                >
+                <Select value={selectedChapterId || ''} onValueChange={setSelectedChapterId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a chapter" />
                   </SelectTrigger>
@@ -631,430 +532,431 @@ export default function ContributorPage() {
           </CardContent>
         </Card>
 
-        {selectedChapterId && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Questions</CardTitle>
-                  <CardDescription>
-                    {questionsLoading ? 'Loading...' : `${questions?.length || 0} questions`}
-                  </CardDescription>
-                </div>
+        {selectedSubject && selectedChapterId && (
+          <>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Questions</h2>
+                <p className="text-sm text-muted-foreground">
+                  {questions?.length || 0} questions in this chapter
+                </p>
               </div>
-            </CardHeader>
-            <CardContent>
-              <Tabs value={pdfImportMode} onValueChange={(v) => setPdfImportMode(v as 'manual' | 'pdf')}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="manual">Manual Entry</TabsTrigger>
-                  <TabsTrigger value="pdf">PDF Import</TabsTrigger>
-                </TabsList>
+              <Button onClick={openCreateDialog}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Question
+              </Button>
+            </div>
 
-                <TabsContent value="manual" className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm text-muted-foreground">
-                      Add questions one at a time or edit existing ones
-                    </p>
-                    <Button onClick={openCreateDialog}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Question
-                    </Button>
-                  </div>
-
-                  {questionsLoading ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    </div>
-                  ) : questions && questions.length > 0 ? (
-                    <div className="space-y-2">
-                      {questions.map((question) => (
-                        <Card key={question.id.toString()}>
-                          <CardContent className="pt-6">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline">{categoryLabels[question.category]}</Badge>
-                                  {question.year && (
-                                    <Badge variant="secondary">Year: {question.year.toString()}</Badge>
-                                  )}
-                                  <Badge>Correct: {question.correctOption}</Badge>
-                                </div>
-                                <p className="text-sm font-medium whitespace-pre-wrap">
-                                  {question.questionText}
-                                </p>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => openEditDialog(question)}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                {isAdmin && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => openDeleteDialog(question.id)}
-                                    disabled={deleteQuestion.isPending}
-                                  >
-                                    <Trash2 className="w-4 h-4 text-destructive" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No questions yet. Add your first question!
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="pdf" className="space-y-4">
-                  {extractedQuestions.length === 0 ? (
-                    <div className="space-y-4">
-                      <Alert>
-                        <HelpCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Upload a PDF containing questions with options (A, B, C, D). The system will
-                          automatically extract and parse them. All Unicode symbols (λ, π, etc.) and formatting will be preserved.
-                        </AlertDescription>
-                      </Alert>
-
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Category</Label>
-                            <Select
-                              value={questionForm.category}
-                              onValueChange={(value) =>
-                                setQuestionForm({ ...questionForm, category: value as Category })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={Category.level1}>Level 1</SelectItem>
-                                <SelectItem value={Category.neetPYQ}>NEET PYQ</SelectItem>
-                                <SelectItem value={Category.jeePYQ}>JEE PYQ</SelectItem>
-                              </SelectContent>
-                            </Select>
+            {questionsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : questions && questions.length > 0 ? (
+              <div className="space-y-3">
+                {questions.map((question) => (
+                  <Card key={question.id.toString()}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="secondary">{categoryLabels[question.category]}</Badge>
+                            {question.year && <Badge variant="outline">Year: {question.year.toString()}</Badge>}
+                            <Badge>Correct: {question.correctOption}</Badge>
                           </div>
-
-                          <div className="space-y-2">
-                            <Label>Year (optional)</Label>
-                            <Input
-                              type="number"
-                              placeholder="e.g., 2024"
-                              value={questionForm.year}
-                              onChange={(e) =>
-                                setQuestionForm({ ...questionForm, year: e.target.value })
-                              }
-                            />
-                          </div>
+                          <CardTitle className="text-base whitespace-pre-wrap break-words">
+                            {question.questionText}
+                          </CardTitle>
                         </div>
-
-                        <div className="space-y-2">
-                          <Label>Upload PDF</Label>
-                          <div className="flex gap-2">
-                            <Input
-                              ref={fileInputRef}
-                              type="file"
-                              accept=".pdf"
-                              onChange={handlePdfFileSelect}
-                              disabled={isPdfProcessing}
-                              className="flex-1"
-                            />
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(question)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          {isAdmin && (
                             <Button
-                              onClick={() => fileInputRef.current?.click()}
-                              disabled={isPdfProcessing}
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openDeleteDialog(question.id)}
                             >
-                              {isPdfProcessing ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Processing...
-                                </>
-                              ) : (
-                                <>
-                                  <Upload className="w-4 h-4 mr-2" />
-                                  Select PDF
-                                </>
-                              )}
+                              <Trash2 className="w-4 h-4 text-destructive" />
                             </Button>
-                          </div>
+                          )}
                         </div>
                       </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="grid gap-2 text-sm">
+                        <div>
+                          <span className="font-medium">A:</span>{' '}
+                          <span className="whitespace-pre-wrap break-words">{question.optionA}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">B:</span>{' '}
+                          <span className="whitespace-pre-wrap break-words">{question.optionB}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">C:</span>{' '}
+                          <span className="whitespace-pre-wrap break-words">{question.optionC}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">D:</span>{' '}
+                          <span className="whitespace-pre-wrap break-words">{question.optionD}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  No questions yet. Click "Add Question" to create one.
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+
+        {selectedSubject && filteredChapters.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Manage Chapters</CardTitle>
+              <CardDescription>Edit chapter details</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {filteredChapters.map((chapter) => (
+                  <div
+                    key={chapter.id.toString()}
+                    className="flex items-center justify-between p-3 rounded-lg border"
+                  >
+                    <div>
+                      <p className="font-medium">{chapter.title}</p>
+                      <p className="text-sm text-muted-foreground">Sequence: {chapter.sequence.toString()}</p>
                     </div>
-                  ) : (
-                    <PdfImportPreviewList
-                      questions={extractedQuestions}
-                      onRemove={handleRemoveExtractedQuestion}
-                      onSave={handleSaveBulkQuestions}
-                      isSaving={createQuestionsBulk.isPending}
-                    />
-                  )}
-                </TabsContent>
-              </Tabs>
+                    <Button variant="ghost" size="icon" onClick={() => openEditChapterDialog(chapter)}>
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}
-
-        {/* Question Dialog */}
-        <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingQuestion ? 'Edit Question' : 'Add New Question'}</DialogTitle>
-              <DialogDescription>
-                Fill in the question details below
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={editingQuestion ? handleUpdateQuestion : handleCreateQuestion} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Question Text</Label>
-                <Textarea
-                  value={questionForm.questionText}
-                  onChange={(e) => setQuestionForm({ ...questionForm, questionText: e.target.value })}
-                  required
-                  rows={4}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Option A</Label>
-                  <Input
-                    value={questionForm.optionA}
-                    onChange={(e) => setQuestionForm({ ...questionForm, optionA: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Option B</Label>
-                  <Input
-                    value={questionForm.optionB}
-                    onChange={(e) => setQuestionForm({ ...questionForm, optionB: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Option C</Label>
-                  <Input
-                    value={questionForm.optionC}
-                    onChange={(e) => setQuestionForm({ ...questionForm, optionC: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Option D</Label>
-                  <Input
-                    value={questionForm.optionD}
-                    onChange={(e) => setQuestionForm({ ...questionForm, optionD: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Correct Option</Label>
-                  <Select
-                    value={questionForm.correctOption}
-                    onValueChange={(value) => setQuestionForm({ ...questionForm, correctOption: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A">A</SelectItem>
-                      <SelectItem value="B">B</SelectItem>
-                      <SelectItem value="C">C</SelectItem>
-                      <SelectItem value="D">D</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select
-                    value={questionForm.category}
-                    onValueChange={(value) => setQuestionForm({ ...questionForm, category: value as Category })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={Category.level1}>Level 1</SelectItem>
-                      <SelectItem value={Category.neetPYQ}>NEET PYQ</SelectItem>
-                      <SelectItem value={Category.jeePYQ}>JEE PYQ</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Year (optional)</Label>
-                  <Input
-                    type="number"
-                    placeholder="e.g., 2024"
-                    value={questionForm.year}
-                    onChange={(e) => setQuestionForm({ ...questionForm, year: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Explanation</Label>
-                <Textarea
-                  value={questionForm.explanation}
-                  onChange={(e) => setQuestionForm({ ...questionForm, explanation: e.target.value })}
-                  required
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setQuestionDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createQuestion.isPending || updateQuestion.isPending}>
-                  {createQuestion.isPending || updateQuestion.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : editingQuestion ? (
-                    'Update Question'
-                  ) : (
-                    'Create Question'
-                  )}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Chapter Edit Dialog */}
-        <Dialog open={chapterDialogOpen} onOpenChange={setChapterDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Chapter</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleUpdateChapter} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Title</Label>
-                <Input
-                  value={chapterForm.title}
-                  onChange={(e) => setChapterForm({ ...chapterForm, title: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  value={chapterForm.description}
-                  onChange={(e) => setChapterForm({ ...chapterForm, description: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Sequence</Label>
-                <Input
-                  type="number"
-                  value={chapterForm.sequence}
-                  onChange={(e) => setChapterForm({ ...chapterForm, sequence: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setChapterDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={updateChapter.isPending}>
-                  {updateChapter.isPending ? 'Updating...' : 'Update Chapter'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Create Chapter Dialog */}
-        <Dialog open={createChapterDialogOpen} onOpenChange={setCreateChapterDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Chapter</DialogTitle>
-              <DialogDescription>
-                Add a new chapter to {selectedSubject}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCreateChapter} className="space-y-4">
-              {createChapterError && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{createChapterError}</AlertDescription>
-                </Alert>
-              )}
-              <div className="space-y-2">
-                <Label>Title</Label>
-                <Input
-                  value={newChapterForm.title}
-                  onChange={(e) => setNewChapterForm({ ...newChapterForm, title: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  value={newChapterForm.description}
-                  onChange={(e) => setNewChapterForm({ ...newChapterForm, description: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Sequence</Label>
-                <Input
-                  type="number"
-                  value={newChapterForm.sequence}
-                  onChange={(e) => setNewChapterForm({ ...newChapterForm, sequence: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setCreateChapterDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createChapter.isPending}>
-                  {createChapter.isPending ? 'Creating...' : 'Create Chapter'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the question from the database.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setQuestionToDelete(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteQuestion}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {deleteQuestion.isPending ? 'Deleting...' : 'Delete'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
+
+      {/* Question Dialog */}
+      <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingQuestion ? 'Edit Question' : 'Create New Question'}</DialogTitle>
+            <DialogDescription>
+              {editingQuestion ? 'Update the question details below' : 'Fill in the question details below'}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={editingQuestion ? handleUpdateQuestion : handleCreateQuestion} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="questionText">Question Text</Label>
+              <Textarea
+                id="questionText"
+                value={questionForm.questionText}
+                onChange={(e) => setQuestionForm({ ...questionForm, questionText: e.target.value })}
+                placeholder="Enter the question"
+                required
+                rows={4}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="optionA">Option A</Label>
+                <Textarea
+                  id="optionA"
+                  value={questionForm.optionA}
+                  onChange={(e) => setQuestionForm({ ...questionForm, optionA: e.target.value })}
+                  placeholder="Option A"
+                  required
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="optionB">Option B</Label>
+                <Textarea
+                  id="optionB"
+                  value={questionForm.optionB}
+                  onChange={(e) => setQuestionForm({ ...questionForm, optionB: e.target.value })}
+                  placeholder="Option B"
+                  required
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="optionC">Option C</Label>
+                <Textarea
+                  id="optionC"
+                  value={questionForm.optionC}
+                  onChange={(e) => setQuestionForm({ ...questionForm, optionC: e.target.value })}
+                  placeholder="Option C"
+                  required
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="optionD">Option D</Label>
+                <Textarea
+                  id="optionD"
+                  value={questionForm.optionD}
+                  onChange={(e) => setQuestionForm({ ...questionForm, optionD: e.target.value })}
+                  placeholder="Option D"
+                  required
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="correctOption">Correct Option</Label>
+              <Select
+                value={questionForm.correctOption}
+                onValueChange={(value) => setQuestionForm({ ...questionForm, correctOption: value })}
+              >
+                <SelectTrigger id="correctOption">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="A">A</SelectItem>
+                  <SelectItem value="B">B</SelectItem>
+                  <SelectItem value="C">C</SelectItem>
+                  <SelectItem value="D">D</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="explanation">Explanation</Label>
+              <Textarea
+                id="explanation"
+                value={questionForm.explanation}
+                onChange={(e) => setQuestionForm({ ...questionForm, explanation: e.target.value })}
+                placeholder="Explain the correct answer"
+                required
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select
+                  value={questionForm.category}
+                  onValueChange={(value) => setQuestionForm({ ...questionForm, category: value as Category })}
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={Category.level1}>Level 1</SelectItem>
+                    <SelectItem value={Category.neetPYQ}>NEET PYQ</SelectItem>
+                    <SelectItem value={Category.jeePYQ}>JEE PYQ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="year">
+                  Year <span className="text-muted-foreground">(optional, for PYQ)</span>
+                </Label>
+                <Input
+                  id="year"
+                  type="number"
+                  value={questionForm.year}
+                  onChange={(e) => setQuestionForm({ ...questionForm, year: e.target.value })}
+                  placeholder="e.g., 2024"
+                  min="2000"
+                  max="2030"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => setQuestionDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={createQuestion.isPending || updateQuestion.isPending}
+              >
+                {createQuestion.isPending || updateQuestion.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : editingQuestion ? (
+                  'Update Question'
+                ) : (
+                  'Create Question'
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Chapter Edit Dialog */}
+      <Dialog open={chapterDialogOpen} onOpenChange={setChapterDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Chapter</DialogTitle>
+            <DialogDescription>Update the chapter details below</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateChapter} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="chapterTitle">Title</Label>
+              <Input
+                id="chapterTitle"
+                value={chapterForm.title}
+                onChange={(e) => setChapterForm({ ...chapterForm, title: e.target.value })}
+                placeholder="Chapter title"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="chapterDescription">Description</Label>
+              <Textarea
+                id="chapterDescription"
+                value={chapterForm.description}
+                onChange={(e) => setChapterForm({ ...chapterForm, description: e.target.value })}
+                placeholder="Chapter description"
+                required
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="chapterSequence">Sequence</Label>
+              <Input
+                id="chapterSequence"
+                type="number"
+                value={chapterForm.sequence}
+                onChange={(e) => setChapterForm({ ...chapterForm, sequence: e.target.value })}
+                placeholder="Display order"
+                required
+                min="0"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setChapterDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateChapter.isPending}>
+                {updateChapter.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update Chapter'
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Chapter Dialog */}
+      <Dialog open={createChapterDialogOpen} onOpenChange={setCreateChapterDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Chapter</DialogTitle>
+            <DialogDescription>Add a new chapter to {selectedSubject}</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateChapter} className="space-y-4">
+            {createChapterError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{createChapterError}</AlertDescription>
+              </Alert>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="newChapterTitle">Title</Label>
+              <Input
+                id="newChapterTitle"
+                value={newChapterForm.title}
+                onChange={(e) => setNewChapterForm({ ...newChapterForm, title: e.target.value })}
+                placeholder="Chapter title"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newChapterDescription">Description</Label>
+              <Textarea
+                id="newChapterDescription"
+                value={newChapterForm.description}
+                onChange={(e) => setNewChapterForm({ ...newChapterForm, description: e.target.value })}
+                placeholder="Chapter description"
+                required
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newChapterSequence">Sequence</Label>
+              <Input
+                id="newChapterSequence"
+                type="number"
+                value={newChapterForm.sequence}
+                onChange={(e) => setNewChapterForm({ ...newChapterForm, sequence: e.target.value })}
+                placeholder="Display order"
+                required
+                min="0"
+              />
+              <p className="text-xs text-muted-foreground">
+                <HelpCircle className="w-3 h-3 inline mr-1" />
+                Lower numbers appear first in the list
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setCreateChapterDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createChapter.isPending}>
+                {createChapter.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Chapter'
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the question from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteQuestion}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteQuestion.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MobilePage>
   );
 }
