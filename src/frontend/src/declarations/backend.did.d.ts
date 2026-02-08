@@ -21,6 +21,7 @@ export interface Chapter {
   'description' : string,
   'sequence' : bigint,
 }
+export type ExternalBlob = Uint8Array;
 export interface PracticeProgress {
   'lastQuestionIndex' : bigint,
   'discoveredQuestionIds' : Array<bigint>,
@@ -39,7 +40,9 @@ export interface Question {
   'createdAt' : bigint,
   'year' : [] | [bigint],
   'chapterId' : bigint,
+  'questionImage' : [] | [ExternalBlob],
   'questionText' : string,
+  'explanationImage' : [] | [ExternalBlob],
   'category' : Category,
   'optionA' : string,
   'optionB' : string,
@@ -85,7 +88,33 @@ export interface UserStats {
   'joinedAt' : bigint,
   'correctAnswers' : bigint,
 }
+export interface _CaffeineStorageCreateCertificateResult {
+  'method' : string,
+  'blob_hash' : string,
+}
+export interface _CaffeineStorageRefillInformation {
+  'proposed_top_up_amount' : [] | [bigint],
+}
+export interface _CaffeineStorageRefillResult {
+  'success' : [] | [boolean],
+  'topped_up_amount' : [] | [bigint],
+}
 export interface _SERVICE {
+  '_caffeineStorageBlobIsLive' : ActorMethod<[Uint8Array], boolean>,
+  '_caffeineStorageBlobsToDelete' : ActorMethod<[], Array<Uint8Array>>,
+  '_caffeineStorageConfirmBlobDeletion' : ActorMethod<
+    [Array<Uint8Array>],
+    undefined
+  >,
+  '_caffeineStorageCreateCertificate' : ActorMethod<
+    [string],
+    _CaffeineStorageCreateCertificateResult
+  >,
+  '_caffeineStorageRefillCashier' : ActorMethod<
+    [[] | [_CaffeineStorageRefillInformation]],
+    _CaffeineStorageRefillResult
+  >,
+  '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createChapter' : ActorMethod<[Subject, string, string, bigint], bigint>,
@@ -102,9 +131,12 @@ export interface _SERVICE {
       string,
       Category,
       [] | [bigint],
+      [] | [ExternalBlob],
+      [] | [ExternalBlob],
     ],
     bigint
   >,
+  'createQuestionsBulk' : ActorMethod<[Array<Question>], Array<bigint>>,
   'deleteChapter' : ActorMethod<[bigint], undefined>,
   'deleteQuestion' : ActorMethod<[bigint], undefined>,
   'getCallerStats' : ActorMethod<[], UserStats>,
@@ -131,9 +163,12 @@ export interface _SERVICE {
   'getTotalAuthenticatedUsers' : ActorMethod<[], bigint>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'getUserStats' : ActorMethod<[Principal], UserStats>,
+  'grantContributorAccess' : ActorMethod<[Principal], undefined>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'isCallerContributor' : ActorMethod<[], boolean>,
   'listChapters' : ActorMethod<[], Array<Chapter>>,
   'listQuestions' : ActorMethod<[], Array<Question>>,
+  'revokeContributorAccess' : ActorMethod<[Principal], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'savePracticeProgress' : ActorMethod<
     [PracticeProgressKey, PracticeProgress],
@@ -144,6 +179,7 @@ export interface _SERVICE {
     bigint
   >,
   'updateChapter' : ActorMethod<[bigint, string, string, bigint], undefined>,
+  'updateContributorPassword' : ActorMethod<[string], undefined>,
   'updateQuestion' : ActorMethod<
     [
       bigint,
@@ -156,9 +192,12 @@ export interface _SERVICE {
       string,
       Category,
       [] | [bigint],
+      [] | [ExternalBlob],
+      [] | [ExternalBlob],
     ],
     undefined
   >,
+  'verifyContributorPassword' : ActorMethod<[string], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

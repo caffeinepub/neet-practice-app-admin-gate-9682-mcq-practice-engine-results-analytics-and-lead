@@ -1,72 +1,77 @@
 {
   "kind": "build_request",
-  "title": "Persist answers across question navigation and add subject-wise + overall student rankings",
+  "title": "Fix PDF import fidelity (symbols/formatting/figures) and add delete-question option",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Update the practice question flow so that when a student submits an answer and moves (slides) to the next question, the previously selected answer is retained for that question and is available at the end of the session for review (including when navigating back to previous questions using the question navigator).",
+      "text": "Improve PDF-to-question extraction so imported questions preserve all Unicode symbols (e.g., λ, π), line breaks, and spacing as closely as possible to the source PDF; ensure the preview and the saved question content match exactly what was extracted (no normalization that removes symbols or collapses whitespace).",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-6",
+          "msg-11"
         ],
         "quotes": [
-          "All feature are good but when some one click answer and it shows answer and it slide to another question keep old answer save at end at one can see subject wise ranking of all students and overall ranking"
+          "Why question show something wrong please open them and when I upload it does not include sylbols of Lambda  Pi like symbols and all other please include in question everything which is in PDF including symbols different figures exactly like which is in PDF",
+          "Ok retry it and make it happen"
         ]
       },
       "acceptanceCriteria": [
-        "After answering Question N and moving to Question N+1, returning to Question N shows the same selected option as previously chosen.",
-        "The list of attempts shown at the end of the session includes answers for all questions that were answered during the session (not only the last question).",
-        "Answer persistence works even if the student navigates using the Jump-to-Question navigator before finishing the session."
+        "Importing a PDF containing λ, π, and other special characters shows those characters correctly in the import preview.",
+        "After saving, the same characters and formatting (line breaks and spacing) appear identically anywhere the question is displayed (e.g., contributor view, practice flow, results review).",
+        "If a PDF has no extractable text, the user sees a clear error message indicating the PDF is scanned/image-only and cannot be imported as text."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Implement an end-of-session results/review experience that displays the student’s saved answers for the completed session (question-by-question) using authoritative data from the backend test result created on submission.",
+      "text": "Update PDF import to include figures/diagrams from the PDF in the imported questions so that questions display figures as part of the question content as closely as possible to the original PDF; figures must be visible in the import preview and after saving when viewing/practicing the question.",
       "target": "both",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-6",
+          "msg-11"
         ],
         "quotes": [
-          "keep old answer save at end"
+          "please include in question everything which is in PDF including symbols different figures exactly like which is in PDF",
+          "Ok retry it and make it happen"
         ]
       },
       "acceptanceCriteria": [
-        "Backend exposes a query to retrieve a submitted test result by resultId with authorization that prevents other users from reading someone else’s result.",
-        "Results page displays a real score breakdown derived from the stored attempts (correct/incorrect counts, accuracy, and per-question review showing chosen option vs correct option).",
-        "Results page renders without placeholder text about missing backend support."
+        "If a question in the source PDF includes a figure/diagram, the imported question preview includes that figure/diagram.",
+        "After saving, the question continues to display the figure/diagram in the same question wherever it is rendered in the app.",
+        "Figure handling does not break import for PDFs without figures (those imports still work as before)."
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Add subject-wise ranking and overall ranking of all students. Overall ranking should continue to work as a global leaderboard, and subject-wise ranking should rank students using subject-specific performance aggregated from submitted test results.",
-      "target": "both",
+      "text": "Add a delete option for questions in the question management UI, wired to the existing backend deleteQuestion function, with a confirmation step and automatic refresh of question lists after deletion; only admins should be allowed to perform deletion and non-admins must not be shown a working delete control.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-7",
+          "msg-11"
         ],
         "quotes": [
-          "subject wise ranking of all students and overall ranking"
+          "Also make a option of deleting the questions",
+          "Ok retry it and make it happen"
         ]
       },
       "acceptanceCriteria": [
-        "Backend provides a query for a subject-specific leaderboard (for physics, chemistry, biology) that returns a sorted ranking comparable to the overall leaderboard.",
-        "Rankings UI allows switching between Overall and a selected Subject leaderboard, and displays a ranked table of students for the chosen scope.",
-        "Overall leaderboard remains available and unchanged in meaning (global)."
+        "Admins can delete a question via the UI and the question is removed from the list without requiring a full page reload.",
+        "A confirmation prompt is shown before permanently deleting a question.",
+        "Non-admin users cannot successfully delete questions (and do not see an enabled delete control)."
       ]
     }
   ],
   "constraints": [
-    "Backend must remain a single Motoko actor in backend/main.mo (no additional canisters/services).",
-    "Do not edit files under frontend/src/components/ui (compose existing UI components instead).",
-    "Do not modify immutable frontend hook files: frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useInternetIdentity.tsx, frontend/src/hooks/useActor.ts, frontend/src/main.tsx."
+    "Do not edit files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useInternetIdentity.tsx, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or anything under frontend/src/components/ui (compose these components instead).",
+    "Backend must remain a single Motoko actor in backend/main.mo; only introduce backend state migrations if strictly required by data model changes."
   ],
   "nonGoals": [
-    "Add real-time/live updating rankings (no websockets or push).",
-    "Add third-party authentication providers (only Internet Identity is supported).",
-    "Introduce external databases or off-chain storage."
+    "Adding third-party OCR or external services to extract text/figures from scanned PDFs.",
+    "Implementing real-time collaboration or chat around questions.",
+    "Changing authentication providers (must remain Internet Identity)."
   ],
   "imageRequirements": {
     "required": [],

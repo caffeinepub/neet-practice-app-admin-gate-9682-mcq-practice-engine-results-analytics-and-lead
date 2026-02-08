@@ -1,11 +1,12 @@
 # Specification
 
 ## Summary
-**Goal:** Keep students’ selected answers saved while navigating between practice questions, and add end-of-session review plus overall and subject-wise student rankings.
+**Goal:** Make PDF-imported questions faithfully preserve symbols/formatting and include PDF figures, and add an admin-only delete option in question management.
 
 **Planned changes:**
-- Persist each question’s selected answer across next/previous navigation and jump-to-question navigation, and include all saved attempts in the session summary.
-- Add a results/review flow that loads a submitted test result by `resultId` from the backend and renders score breakdown and per-question review (chosen vs correct) based on stored attempts.
-- Add leaderboards for Overall and per-subject (physics, chemistry, biology), including backend queries and a UI switcher to view rankings by scope.
+- Improve PDF-to-question extraction to preserve Unicode symbols (e.g., λ, π), line breaks, and spacing without normalizing away characters or collapsing whitespace; ensure import preview and saved question content match exactly.
+- Add handling to include figures/diagrams from PDFs in imported question content so figures appear in the import preview and continue to render after saving wherever the question is shown.
+- Show a clear error message when a PDF contains no extractable text (scanned/image-only) and cannot be imported as text.
+- Add an admin-only delete action in the question management UI wired to the existing `deleteQuestion` backend function, including a confirmation prompt and automatic list refresh after deletion.
 
-**User-visible outcome:** Students can move through questions without losing prior selections, review a completed session with accurate saved answers and scoring, and view both overall and subject-wise rankings of all students.
+**User-visible outcome:** Importing questions from PDFs preserves special symbols and formatting and includes any figures/diagrams in both preview and saved questions; admins can delete questions from the management UI with confirmation and see the list update immediately, while non-admins cannot delete.

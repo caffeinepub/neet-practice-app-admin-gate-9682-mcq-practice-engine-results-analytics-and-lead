@@ -1,28 +1,33 @@
 import Map "mo:core/Map";
-import Nat "mo:core/Nat";
 import Principal "mo:core/Principal";
-import Time "mo:core/Time";
+import Storage "blob-storage/Storage";
+import AccessControl "authorization/access-control";
 
 module {
-  type Subject = { #physics; #chemistry; #biology };
-  type Chapter = {
+  type OldSubject = {
+    #physics;
+    #chemistry;
+    #biology;
+  };
+
+  type OldChapter = {
     id : Nat;
-    subject : Subject;
+    subject : OldSubject;
     title : Text;
     description : Text;
     sequence : Nat;
     createdAt : Int;
   };
 
-  type Category = {
+  type OldCategory = {
     #level1;
     #neetPYQ;
     #jeePYQ;
   };
 
-  type Question = {
+  type OldQuestion = {
     id : Nat;
-    subject : Subject;
+    subject : OldSubject;
     chapterId : Nat;
     questionText : Text;
     optionA : Text;
@@ -31,12 +36,12 @@ module {
     optionD : Text;
     correctOption : Text;
     explanation : Text;
-    category : Category;
+    category : OldCategory;
     createdAt : Int;
     year : ?Nat;
   };
 
-  type UserStats = {
+  type OldUserStats = {
     displayName : Text;
     totalQuestionsAnswered : Nat;
     correctAnswers : Nat;
@@ -44,68 +49,106 @@ module {
     joinedAt : Int;
   };
 
-  type QuestionAttempt = {
+  type OldSubjectUserStats = {
+    user : Principal;
+    displayName : Text;
+    subject : OldSubject;
+    totalQuestionsAnswered : Nat;
+    correctAnswers : Nat;
+    accuracy : Float;
+    averageTimePerQuestion : Nat;
+    joinedAt : Int;
+  };
+
+  type OldQuestionAttempt = {
     questionId : Nat;
     chosenOption : Text;
     isCorrect : Bool;
     timeTaken : Int;
   };
 
-  type TestResult = {
+  type OldTestResult = {
     id : Nat;
-    user : Principal.Principal;
-    subject : Subject;
+    user : Principal;
+    subject : OldSubject;
     chapterId : Nat;
-    attempts : [QuestionAttempt];
+    attempts : [OldQuestionAttempt];
     score : Nat;
     createdAt : Int;
   };
 
-  type UserProfile = {
+  type OldUserProfile = {
     name : Text;
   };
 
-  type PracticeProgressKey = {
-    subject : Subject;
+  type OldPracticeProgressKey = {
+    subject : OldSubject;
     chapterId : Nat;
-    category : Category;
+    category : OldCategory;
     year : ?Nat;
   };
 
-  type PracticeProgress = {
+  type OldPracticeProgress = {
     lastQuestionIndex : Nat;
     discoveredQuestionIds : [Nat];
   };
 
   type OldActor = {
-    chapters : Map.Map<Nat, Chapter>;
-    questions : Map.Map<Nat, Question>;
-    userStats : Map.Map<Principal.Principal, UserStats>;
-    testResults : Map.Map<Nat, TestResult>;
-    contributorAccess : Map.Map<Principal.Principal, Bool>;
-    userProfiles : Map.Map<Principal.Principal, UserProfile>;
-    practiceProgress : Map.Map<Principal.Principal, Map.Map<Text, PracticeProgress>>;
+    chapters : Map.Map<Nat, OldChapter>;
+    questions : Map.Map<Nat, OldQuestion>;
+    userStats : Map.Map<Principal, OldUserStats>;
+    testResults : Map.Map<Nat, OldTestResult>;
+    contributorAccess : Map.Map<Principal, Bool>;
+    userProfiles : Map.Map<Principal, OldUserProfile>;
+    practiceProgress : Map.Map<Principal, Map.Map<Text, OldPracticeProgress>>;
     nextChapterId : Nat;
     nextQuestionId : Nat;
     nextTestResultId : Nat;
     contributorPassword : Text;
     totalAuthenticatedUsers : Nat;
+    accessControlState : AccessControl.AccessControlState;
+  };
+
+  type NewQuestion = {
+    id : Nat;
+    subject : OldSubject;
+    chapterId : Nat;
+    questionText : Text;
+    optionA : Text;
+    optionB : Text;
+    optionC : Text;
+    optionD : Text;
+    correctOption : Text;
+    explanation : Text;
+    category : OldCategory;
+    createdAt : Int;
+    year : ?Nat;
+    questionImage : ?Storage.ExternalBlob;
+    explanationImage : ?Storage.ExternalBlob;
   };
 
   type NewActor = {
-    chapters : Map.Map<Nat, Chapter>;
-    questions : Map.Map<Nat, Question>;
-    userStats : Map.Map<Principal.Principal, UserStats>;
-    testResults : Map.Map<Nat, TestResult>;
-    contributorAccess : Map.Map<Principal.Principal, Bool>;
-    userProfiles : Map.Map<Principal.Principal, UserProfile>;
-    practiceProgress : Map.Map<Principal.Principal, Map.Map<Text, PracticeProgress>>;
+    chapters : Map.Map<Nat, OldChapter>;
+    questions : Map.Map<Nat, NewQuestion>;
+    userStats : Map.Map<Principal, OldUserStats>;
+    testResults : Map.Map<Nat, OldTestResult>;
+    contributorAccess : Map.Map<Principal, Bool>;
+    userProfiles : Map.Map<Principal, OldUserProfile>;
+    practiceProgress : Map.Map<Principal, Map.Map<Text, OldPracticeProgress>>;
     nextChapterId : Nat;
     nextQuestionId : Nat;
     nextTestResultId : Nat;
     contributorPassword : Text;
     totalAuthenticatedUsers : Nat;
+    accessControlState : AccessControl.AccessControlState;
   };
 
-  public func run(old : OldActor) : NewActor { old };
+  public func run(old : OldActor) : NewActor {
+    let newQuestions = old.questions.map<Nat, OldQuestion, NewQuestion>(
+      func(_id, oldQuestion) {
+        { oldQuestion with questionImage = null; explanationImage = null };
+      }
+    );
+    { old with questions = newQuestions };
+  };
 };

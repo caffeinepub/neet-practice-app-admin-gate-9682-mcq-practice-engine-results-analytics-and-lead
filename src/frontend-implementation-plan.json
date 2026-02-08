@@ -1,73 +1,88 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Persist practice answers across navigation; add results review from backend; add subject-wise and overall rankings switcher",
+  "title": "PDF import fidelity improvements (Unicode/whitespace/figures) and admin-only question deletion",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Persist per-question selected answers across next/previous and jump navigation, and keep a complete in-session attempts set for final submission/review.",
+      "summary": "Preserve Unicode symbols and PDF formatting (line breaks/spacing) through import preview and saved question content, with a clear error for scanned/image-only PDFs.",
       "acceptanceCriteria": [
-        "After answering Question N and moving to Question N+1, returning to Question N shows the same selected option as previously chosen.",
-        "The list of attempts shown at the end of the session includes answers for all questions that were answered during the session (not only the last question).",
-        "Answer persistence works even if the student navigates using the Jump-to-Question navigator before finishing the session."
+        "Importing a PDF containing λ, π, and other special characters shows those characters correctly in the import preview.",
+        "After saving, the same characters and formatting (line breaks and spacing) appear identically anywhere the question is displayed (e.g., contributor view, practice flow, results review).",
+        "If a PDF has no extractable text, the user sees a clear error message indicating the PDF is scanned/image-only and cannot be imported as text."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/pages/PracticePage.tsx",
+          "path": "frontend/src/utils/pdf/pdfTextReconstruction.ts",
           "operation": "modify",
-          "description": "Refactor practice session state to store answers/attempts keyed per question (e.g., by questionId or index) so selectedOption is restored when returning to a question, including via QuestionNavigator. Ensure that submitting an answer records/updates the attempt for that specific question (not only appending sequentially), and that final submission builds the attempts array from all saved attempts in question order so end-of-session includes all answered questions."
+          "description": "Adjust whitespace reconstruction to be more faithful to the PDF text items (avoid filtering out whitespace-only items; keep Unicode as-is; keep explicit line breaks and avoid trimming that changes extracted content)."
         },
         {
-          "path": "frontend/src/components/practice/QuestionNavigator.tsx",
+          "path": "frontend/src/utils/pdf/pdfToQuestions.ts",
           "operation": "modify",
-          "description": "Extend the navigator to optionally accept and render an “answered” indicator/state (e.g., styling) for questions that have a saved attempt, while keeping current selection highlighting and navigation behavior intact."
+          "description": "Remove/limit trimming and other normalization during question splitting/parsing so the extracted text (including symbols, line breaks, and spacing) is preserved consistently from extraction -> preview -> save; keep/extend the existing 'no selectable text' error messaging for scanned/image-only PDFs."
         },
         {
-          "path": "frontend/src/types/practice.ts",
+          "path": "frontend/src/components/contributor/PdfImportPreviewList.tsx",
           "operation": "modify",
-          "description": "Align/extend practice session types to support persisted per-question answers/attempts (e.g., map keyed by questionId/index) used by PracticePage for answer retention and complete attempt collection."
+          "description": "Ensure preview rendering continues to display extracted content without normalization (e.g., keep whitespace-pre-wrap for all relevant fields and avoid any UI-side transformations that could alter symbols/spacing)."
+        },
+        {
+          "path": "frontend/src/pages/ContributorPage.tsx",
+          "operation": "modify",
+          "description": "Ensure the saved question payload uses the exact extracted strings (no additional frontend-side normalization before calling bulk create), and surface the scanned/image-only PDF error clearly (toast/message) when extraction fails."
         }
       ]
     },
     {
       "id": "REQ-2",
-      "summary": "Replace placeholder results screen with an authoritative end-of-session review pulled from the backend test result, including score breakdown and per-question review.",
+      "summary": "Include figures/diagrams from PDFs in imported questions so figures are visible in preview and after saving.",
       "acceptanceCriteria": [
-        "Backend exposes a query to retrieve a submitted test result by resultId with authorization that prevents other users from reading someone else’s result.",
-        "Results page displays a real score breakdown derived from the stored attempts (correct/incorrect counts, accuracy, and per-question review showing chosen option vs correct option).",
-        "Results page renders without placeholder text about missing backend support."
+        "If a question in the source PDF includes a figure/diagram, the imported question preview includes that figure/diagram.",
+        "After saving, the question continues to display the figure/diagram in the same question wherever it is rendered in the app.",
+        "Figure handling does not break import for PDFs without figures (those imports still work as before)."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/hooks/useQueries.ts",
+          "path": "frontend/src/utils/pdf/pdfjsClient.ts",
           "operation": "modify",
-          "description": "Add a React Query hook to retrieve a submitted session review by testResultId using the existing backend capability (getSessionReviewByTestResultId). Include appropriate caching keys and error handling for authorization failures. Verify the authorization component's usage instructions before implementing."
+          "description": "Extend the PDF.js client utilities to support extracting figure imagery from PDFs on the client (e.g., rendering relevant page regions to images) in a way that can be attached to imported questions."
         },
         {
-          "path": "frontend/src/pages/ResultsPage.tsx",
+          "path": "frontend/src/utils/pdf/pdfToQuestions.ts",
           "operation": "modify",
-          "description": "Implement results fetching by resultId via the new hook and render: overall score/accuracy, correct vs incorrect counts, average time (derived from attempts), and a per-question review list showing question text, chosen option, correct option, and correctness. Remove placeholder messaging. Add a minimal auth-aware guard: if the user is not authenticated, prompt them to log in before attempting to load personal results; handle unauthorized errors gracefully. Verify the authorization component's usage instructions before implementing."
+          "description": "Augment extraction to capture figure/diagram images alongside text and return them with extracted question objects (associate figures with the right question based on page/position heuristics; keep behavior unchanged for PDFs with no figures)."
+        },
+        {
+          "path": "frontend/src/components/contributor/PdfImportPreviewList.tsx",
+          "operation": "modify",
+          "description": "Render extracted figure/diagram images inside the question preview cards so users can verify figures before saving."
+        },
+        {
+          "path": "frontend/src/pages/ContributorPage.tsx",
+          "operation": "modify",
+          "description": "When saving bulk-imported questions, upload/attach extracted figure/diagram images to the question create payload using the blob-storage ExternalBlob representation. Use the blob-storage component capability (ExternalBlob.fromBytes / getDirectURL) to store and display images; Verify the component's usage instructions before implementing."
         }
       ]
     },
     {
       "id": "REQ-3",
-      "summary": "Add UI to switch between Overall leaderboard and subject-wise leaderboards (physics/chemistry/biology) and render a ranked table for the selected scope.",
+      "summary": "Add an admin-only delete control in question management with confirmation and list refresh, wired to the existing deleteQuestion backend function.",
       "acceptanceCriteria": [
-        "Backend provides a query for a subject-specific leaderboard (for physics, chemistry, biology) that returns a sorted ranking comparable to the overall leaderboard.",
-        "Rankings UI allows switching between Overall and a selected Subject leaderboard, and displays a ranked table of students for the chosen scope.",
-        "Overall leaderboard remains available and unchanged in meaning (global)."
+        "Admins can delete a question via the UI and the question is removed from the list without requiring a full page reload.",
+        "A confirmation prompt is shown before permanently deleting a question.",
+        "Non-admin users cannot successfully delete questions (and do not see an enabled delete control)."
       ],
       "file_operations": [
         {
           "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Add a React Query hook for subject leaderboard retrieval (getSubjectLeaderboard) parameterized by subject and with stable caching keys. Verify the authorization component's usage instructions before implementing."
+          "description": "Add a React Query hook to determine whether the caller is an admin (using the existing backend isCallerAdmin capability) and ensure deletion-related queries invalidate/refresh question lists after successful deletion."
         },
         {
-          "path": "frontend/src/pages/RankingsPage.tsx",
+          "path": "frontend/src/pages/ContributorPage.tsx",
           "operation": "modify",
-          "description": "Add a scope switcher (Overall / Physics / Chemistry / Biology) and conditionally fetch/render either the existing overall leaderboard or the selected subject leaderboard. Keep overall leaderboard meaning unchanged. Update the table columns as needed for subject stats (e.g., questions answered, correct, accuracy), while preserving ranked ordering and current-user highlighting behavior where possible. Verify the authorization component's usage instructions before implementing."
+          "description": "Add a delete action to the question list UI that is only shown/enabled for admins; use a confirmation step (compose existing shadcn/ui dialog/alert-dialog components) and call the existing useDeleteQuestion mutation, then refresh the list via query invalidation."
         }
       ]
     }

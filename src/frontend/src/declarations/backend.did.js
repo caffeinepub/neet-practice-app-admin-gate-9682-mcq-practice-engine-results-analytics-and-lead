@@ -8,6 +8,17 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const _CaffeineStorageCreateCertificateResult = IDL.Record({
+  'method' : IDL.Text,
+  'blob_hash' : IDL.Text,
+});
+export const _CaffeineStorageRefillInformation = IDL.Record({
+  'proposed_top_up_amount' : IDL.Opt(IDL.Nat),
+});
+export const _CaffeineStorageRefillResult = IDL.Record({
+  'success' : IDL.Opt(IDL.Bool),
+  'topped_up_amount' : IDL.Opt(IDL.Nat),
+});
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
@@ -22,6 +33,24 @@ export const Category = IDL.Variant({
   'level1' : IDL.Null,
   'neetPYQ' : IDL.Null,
   'jeePYQ' : IDL.Null,
+});
+export const ExternalBlob = IDL.Vec(IDL.Nat8);
+export const Question = IDL.Record({
+  'id' : IDL.Nat,
+  'correctOption' : IDL.Text,
+  'subject' : Subject,
+  'explanation' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'year' : IDL.Opt(IDL.Nat),
+  'chapterId' : IDL.Nat,
+  'questionImage' : IDL.Opt(ExternalBlob),
+  'questionText' : IDL.Text,
+  'explanationImage' : IDL.Opt(ExternalBlob),
+  'category' : Category,
+  'optionA' : IDL.Text,
+  'optionB' : IDL.Text,
+  'optionC' : IDL.Text,
+  'optionD' : IDL.Text,
 });
 export const UserStats = IDL.Record({
   'averageTimePerQuestion' : IDL.Nat,
@@ -48,21 +77,6 @@ export const PracticeProgressKey = IDL.Record({
 export const PracticeProgress = IDL.Record({
   'lastQuestionIndex' : IDL.Nat,
   'discoveredQuestionIds' : IDL.Vec(IDL.Nat),
-});
-export const Question = IDL.Record({
-  'id' : IDL.Nat,
-  'correctOption' : IDL.Text,
-  'subject' : Subject,
-  'explanation' : IDL.Text,
-  'createdAt' : IDL.Int,
-  'year' : IDL.Opt(IDL.Nat),
-  'chapterId' : IDL.Nat,
-  'questionText' : IDL.Text,
-  'category' : Category,
-  'optionA' : IDL.Text,
-  'optionB' : IDL.Text,
-  'optionC' : IDL.Text,
-  'optionD' : IDL.Text,
 });
 export const QuestionAttempt = IDL.Record({
   'isCorrect' : IDL.Bool,
@@ -91,6 +105,32 @@ export const SubjectUserStats = IDL.Record({
 });
 
 export const idlService = IDL.Service({
+  '_caffeineStorageBlobIsLive' : IDL.Func(
+      [IDL.Vec(IDL.Nat8)],
+      [IDL.Bool],
+      ['query'],
+    ),
+  '_caffeineStorageBlobsToDelete' : IDL.Func(
+      [],
+      [IDL.Vec(IDL.Vec(IDL.Nat8))],
+      ['query'],
+    ),
+  '_caffeineStorageConfirmBlobDeletion' : IDL.Func(
+      [IDL.Vec(IDL.Vec(IDL.Nat8))],
+      [],
+      [],
+    ),
+  '_caffeineStorageCreateCertificate' : IDL.Func(
+      [IDL.Text],
+      [_CaffeineStorageCreateCertificateResult],
+      [],
+    ),
+  '_caffeineStorageRefillCashier' : IDL.Func(
+      [IDL.Opt(_CaffeineStorageRefillInformation)],
+      [_CaffeineStorageRefillResult],
+      [],
+    ),
+  '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'createChapter' : IDL.Func(
@@ -111,10 +151,13 @@ export const idlService = IDL.Service({
         IDL.Text,
         Category,
         IDL.Opt(IDL.Nat),
+        IDL.Opt(ExternalBlob),
+        IDL.Opt(ExternalBlob),
       ],
       [IDL.Nat],
       [],
     ),
+  'createQuestionsBulk' : IDL.Func([IDL.Vec(Question)], [IDL.Vec(IDL.Nat)], []),
   'deleteChapter' : IDL.Func([IDL.Nat], [], []),
   'deleteQuestion' : IDL.Func([IDL.Nat], [], []),
   'getCallerStats' : IDL.Func([], [UserStats], ['query']),
@@ -164,9 +207,12 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getUserStats' : IDL.Func([IDL.Principal], [UserStats], ['query']),
+  'grantContributorAccess' : IDL.Func([IDL.Principal], [], []),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'isCallerContributor' : IDL.Func([], [IDL.Bool], ['query']),
   'listChapters' : IDL.Func([], [IDL.Vec(Chapter)], ['query']),
   'listQuestions' : IDL.Func([], [IDL.Vec(Question)], ['query']),
+  'revokeContributorAccess' : IDL.Func([IDL.Principal], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'savePracticeProgress' : IDL.Func(
       [PracticeProgressKey, PracticeProgress],
@@ -179,6 +225,7 @@ export const idlService = IDL.Service({
       [],
     ),
   'updateChapter' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Nat], [], []),
+  'updateContributorPassword' : IDL.Func([IDL.Text], [], []),
   'updateQuestion' : IDL.Func(
       [
         IDL.Nat,
@@ -191,15 +238,29 @@ export const idlService = IDL.Service({
         IDL.Text,
         Category,
         IDL.Opt(IDL.Nat),
+        IDL.Opt(ExternalBlob),
+        IDL.Opt(ExternalBlob),
       ],
       [],
       [],
     ),
+  'verifyContributorPassword' : IDL.Func([IDL.Text], [IDL.Bool], []),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const _CaffeineStorageCreateCertificateResult = IDL.Record({
+    'method' : IDL.Text,
+    'blob_hash' : IDL.Text,
+  });
+  const _CaffeineStorageRefillInformation = IDL.Record({
+    'proposed_top_up_amount' : IDL.Opt(IDL.Nat),
+  });
+  const _CaffeineStorageRefillResult = IDL.Record({
+    'success' : IDL.Opt(IDL.Bool),
+    'topped_up_amount' : IDL.Opt(IDL.Nat),
+  });
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
@@ -214,6 +275,24 @@ export const idlFactory = ({ IDL }) => {
     'level1' : IDL.Null,
     'neetPYQ' : IDL.Null,
     'jeePYQ' : IDL.Null,
+  });
+  const ExternalBlob = IDL.Vec(IDL.Nat8);
+  const Question = IDL.Record({
+    'id' : IDL.Nat,
+    'correctOption' : IDL.Text,
+    'subject' : Subject,
+    'explanation' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'year' : IDL.Opt(IDL.Nat),
+    'chapterId' : IDL.Nat,
+    'questionImage' : IDL.Opt(ExternalBlob),
+    'questionText' : IDL.Text,
+    'explanationImage' : IDL.Opt(ExternalBlob),
+    'category' : Category,
+    'optionA' : IDL.Text,
+    'optionB' : IDL.Text,
+    'optionC' : IDL.Text,
+    'optionD' : IDL.Text,
   });
   const UserStats = IDL.Record({
     'averageTimePerQuestion' : IDL.Nat,
@@ -240,21 +319,6 @@ export const idlFactory = ({ IDL }) => {
   const PracticeProgress = IDL.Record({
     'lastQuestionIndex' : IDL.Nat,
     'discoveredQuestionIds' : IDL.Vec(IDL.Nat),
-  });
-  const Question = IDL.Record({
-    'id' : IDL.Nat,
-    'correctOption' : IDL.Text,
-    'subject' : Subject,
-    'explanation' : IDL.Text,
-    'createdAt' : IDL.Int,
-    'year' : IDL.Opt(IDL.Nat),
-    'chapterId' : IDL.Nat,
-    'questionText' : IDL.Text,
-    'category' : Category,
-    'optionA' : IDL.Text,
-    'optionB' : IDL.Text,
-    'optionC' : IDL.Text,
-    'optionD' : IDL.Text,
   });
   const QuestionAttempt = IDL.Record({
     'isCorrect' : IDL.Bool,
@@ -283,6 +347,32 @@ export const idlFactory = ({ IDL }) => {
   });
   
   return IDL.Service({
+    '_caffeineStorageBlobIsLive' : IDL.Func(
+        [IDL.Vec(IDL.Nat8)],
+        [IDL.Bool],
+        ['query'],
+      ),
+    '_caffeineStorageBlobsToDelete' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Vec(IDL.Nat8))],
+        ['query'],
+      ),
+    '_caffeineStorageConfirmBlobDeletion' : IDL.Func(
+        [IDL.Vec(IDL.Vec(IDL.Nat8))],
+        [],
+        [],
+      ),
+    '_caffeineStorageCreateCertificate' : IDL.Func(
+        [IDL.Text],
+        [_CaffeineStorageCreateCertificateResult],
+        [],
+      ),
+    '_caffeineStorageRefillCashier' : IDL.Func(
+        [IDL.Opt(_CaffeineStorageRefillInformation)],
+        [_CaffeineStorageRefillResult],
+        [],
+      ),
+    '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'createChapter' : IDL.Func(
@@ -303,8 +393,15 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           Category,
           IDL.Opt(IDL.Nat),
+          IDL.Opt(ExternalBlob),
+          IDL.Opt(ExternalBlob),
         ],
         [IDL.Nat],
+        [],
+      ),
+    'createQuestionsBulk' : IDL.Func(
+        [IDL.Vec(Question)],
+        [IDL.Vec(IDL.Nat)],
         [],
       ),
     'deleteChapter' : IDL.Func([IDL.Nat], [], []),
@@ -356,9 +453,12 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getUserStats' : IDL.Func([IDL.Principal], [UserStats], ['query']),
+    'grantContributorAccess' : IDL.Func([IDL.Principal], [], []),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'isCallerContributor' : IDL.Func([], [IDL.Bool], ['query']),
     'listChapters' : IDL.Func([], [IDL.Vec(Chapter)], ['query']),
     'listQuestions' : IDL.Func([], [IDL.Vec(Question)], ['query']),
+    'revokeContributorAccess' : IDL.Func([IDL.Principal], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'savePracticeProgress' : IDL.Func(
         [PracticeProgressKey, PracticeProgress],
@@ -371,6 +471,7 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'updateChapter' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Nat], [], []),
+    'updateContributorPassword' : IDL.Func([IDL.Text], [], []),
     'updateQuestion' : IDL.Func(
         [
           IDL.Nat,
@@ -383,10 +484,13 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           Category,
           IDL.Opt(IDL.Nat),
+          IDL.Opt(ExternalBlob),
+          IDL.Opt(ExternalBlob),
         ],
         [],
         [],
       ),
+    'verifyContributorPassword' : IDL.Func([IDL.Text], [IDL.Bool], []),
   });
 };
 

@@ -7,6 +7,13 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
+export class ExternalBlob {
+    getBytes(): Promise<Uint8Array<ArrayBuffer>>;
+    getDirectURL(): string;
+    static fromURL(url: string): ExternalBlob;
+    static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
+    withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
+}
 export interface SubjectUserStats {
     averageTimePerQuestion: bigint;
     subject: Subject;
@@ -20,6 +27,10 @@ export interface SubjectUserStats {
 export interface UserProfile {
     name: string;
 }
+export interface PracticeProgress {
+    lastQuestionIndex: bigint;
+    discoveredQuestionIds: Array<bigint>;
+}
 export interface Chapter {
     id: bigint;
     title: string;
@@ -27,6 +38,15 @@ export interface Chapter {
     createdAt: bigint;
     description: string;
     sequence: bigint;
+}
+export interface TestResult {
+    id: bigint;
+    subject: Subject;
+    createdAt: bigint;
+    user: Principal;
+    attempts: Array<QuestionAttempt>;
+    chapterId: bigint;
+    score: bigint;
 }
 export interface PracticeProgressKey {
     subject: Subject;
@@ -40,10 +60,6 @@ export interface QuestionAttempt {
     chosenOption: string;
     timeTaken: bigint;
 }
-export interface PracticeProgress {
-    lastQuestionIndex: bigint;
-    discoveredQuestionIds: Array<bigint>;
-}
 export interface Question {
     id: bigint;
     correctOption: string;
@@ -52,7 +68,9 @@ export interface Question {
     createdAt: bigint;
     year?: bigint;
     chapterId: bigint;
+    questionImage?: ExternalBlob;
     questionText: string;
+    explanationImage?: ExternalBlob;
     category: Category;
     optionA: string;
     optionB: string;
@@ -65,15 +83,6 @@ export interface UserStats {
     totalQuestionsAnswered: bigint;
     joinedAt: bigint;
     correctAnswers: bigint;
-}
-export interface TestResult {
-    id: bigint;
-    subject: Subject;
-    createdAt: bigint;
-    user: Principal;
-    attempts: Array<QuestionAttempt>;
-    chapterId: bigint;
-    score: bigint;
 }
 export enum Category {
     level1 = "level1",
@@ -93,7 +102,8 @@ export enum UserRole {
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createChapter(subject: Subject, title: string, description: string, sequence: bigint): Promise<bigint>;
-    createQuestion(subject: Subject, chapterId: bigint, questionText: string, optionA: string, optionB: string, optionC: string, optionD: string, correctOption: string, explanation: string, category: Category, year: bigint | null): Promise<bigint>;
+    createQuestion(subject: Subject, chapterId: bigint, questionText: string, optionA: string, optionB: string, optionC: string, optionD: string, correctOption: string, explanation: string, category: Category, year: bigint | null, questionImage: ExternalBlob | null, explanationImage: ExternalBlob | null): Promise<bigint>;
+    createQuestionsBulk(questionsInput: Array<Question>): Promise<Array<bigint>>;
     deleteChapter(id: bigint): Promise<void>;
     deleteQuestion(id: bigint): Promise<void>;
     getCallerStats(): Promise<UserStats>;
@@ -111,12 +121,17 @@ export interface backendInterface {
     getTotalAuthenticatedUsers(): Promise<bigint>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     getUserStats(principal: Principal): Promise<UserStats>;
+    grantContributorAccess(user: Principal): Promise<void>;
     isCallerAdmin(): Promise<boolean>;
+    isCallerContributor(): Promise<boolean>;
     listChapters(): Promise<Array<Chapter>>;
     listQuestions(): Promise<Array<Question>>;
+    revokeContributorAccess(user: Principal): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     savePracticeProgress(key: PracticeProgressKey, progress: PracticeProgress): Promise<void>;
     submitTestResult(subject: Subject, chapterId: bigint, attempts: Array<QuestionAttempt>): Promise<bigint>;
     updateChapter(id: bigint, title: string, description: string, sequence: bigint): Promise<void>;
-    updateQuestion(id: bigint, questionText: string, optionA: string, optionB: string, optionC: string, optionD: string, correctOption: string, explanation: string, category: Category, year: bigint | null): Promise<void>;
+    updateContributorPassword(newPassword: string): Promise<void>;
+    updateQuestion(id: bigint, questionText: string, optionA: string, optionB: string, optionC: string, optionD: string, correctOption: string, explanation: string, category: Category, year: bigint | null, questionImage: ExternalBlob | null, explanationImage: ExternalBlob | null): Promise<void>;
+    verifyContributorPassword(password: string): Promise<boolean>;
 }

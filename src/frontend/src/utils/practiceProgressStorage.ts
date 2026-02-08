@@ -1,9 +1,19 @@
 /**
  * Client-side practice progress storage utilities for anonymous users.
- * Uses localStorage to persist the last seen question index per (subject, chapter, category, optional year).
+ * Uses localStorage to persist the last seen question index and answers per (subject, chapter, category, optional year).
  */
 
 const STORAGE_PREFIX = 'practice_progress_';
+
+export interface StoredAnswer {
+  selectedOption: string;
+  timeTaken: number;
+}
+
+export interface StoredProgress {
+  lastQuestionIndex: number;
+  answers?: Record<string, StoredAnswer>;
+}
 
 /**
  * Create a composite storage key that includes optional year for PYQ sessions
@@ -12,18 +22,23 @@ export function createStorageKey(
   subject: string,
   chapterId: string,
   category: string,
-  year?: number
+  year?: string
 ): string {
   const yearSuffix = year !== undefined ? `-year${year}` : '';
-  return `${subject}-${chapterId}-${category}${yearSuffix}`;
+  return `${STORAGE_PREFIX}${subject}-${chapterId}-${category}${yearSuffix}`;
 }
 
-export function loadLastIndex(key: string): number | null {
+export function loadPracticeProgress(
+  subject: string,
+  chapterId: string,
+  category: string,
+  year?: string
+): StoredProgress | null {
   try {
-    const stored = localStorage.getItem(STORAGE_PREFIX + key);
+    const key = createStorageKey(subject, chapterId, category, year);
+    const stored = localStorage.getItem(key);
     if (stored === null) return null;
-    const parsed = parseInt(stored, 10);
-    if (isNaN(parsed) || parsed < 0) return null;
+    const parsed = JSON.parse(stored);
     return parsed;
   } catch (error) {
     console.error('Failed to load practice progress from localStorage:', error);
@@ -31,18 +46,35 @@ export function loadLastIndex(key: string): number | null {
   }
 }
 
-export function saveLastIndex(key: string, index: number): void {
+export function savePracticeProgress(
+  subject: string,
+  chapterId: string,
+  category: string,
+  lastQuestionIndex: number,
+  answers?: Record<string, StoredAnswer>,
+  year?: string
+): void {
   try {
-    if (index < 0) return;
-    localStorage.setItem(STORAGE_PREFIX + key, index.toString());
+    const key = createStorageKey(subject, chapterId, category, year);
+    const progress: StoredProgress = {
+      lastQuestionIndex,
+      answers,
+    };
+    localStorage.setItem(key, JSON.stringify(progress));
   } catch (error) {
     console.error('Failed to save practice progress to localStorage:', error);
   }
 }
 
-export function clearProgress(key: string): void {
+export function clearProgress(
+  subject: string,
+  chapterId: string,
+  category: string,
+  year?: string
+): void {
   try {
-    localStorage.removeItem(STORAGE_PREFIX + key);
+    const key = createStorageKey(subject, chapterId, category, year);
+    localStorage.removeItem(key);
   } catch (error) {
     console.error('Failed to clear practice progress from localStorage:', error);
   }

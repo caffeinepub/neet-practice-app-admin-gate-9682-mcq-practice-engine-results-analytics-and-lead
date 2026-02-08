@@ -1,32 +1,33 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Question/quiz flow app that persists selected answers across questions and provides end-of-quiz subject-wise and overall student rankings.",
+  "summary": "App that extracts questions/solutions from uploaded PDFs and displays/saves them; needs accurate rendering matching the PDF (symbols, formatting, figures) and question management (delete).",
   "architectural_notes": [],
   "known_issues": [
-    "Selected answers are not being retained/saved when moving to the next question; end-of-quiz review/results cannot reflect prior answers reliably."
+    "Uploaded PDFs are not fully preserved: special symbols (λ, π, etc.), exact formatting, and figures are missing/incorrect in displayed/saved questions.",
+    "Previous build attempt to apply the PDF fidelity + delete option changes failed; fixes not deployed yet."
   ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-update-the-practice-question-flow-so-that-when-a-student-submits-an-answer-and-moves-slides-to-the-next-question-the-previously-selected-answer-is-retained-for-that-question-and-is-available-at-the-end-of-the-session-for-review-including-when-navigating-back-to-previous-questions-using-the-question-navigator",
-      "title": "Update the practice question flow so that when a student submits an answer and moves (slides) to the next question, the previously selected answer is retained for that question and is available at the end of the session for review (including when navigating back to previous questions using the question navigator).",
+      "id": "feature-improve-pdf-to-question-extraction-so-imported-questions-preserve-all-unicode-symbols-e-g-line-breaks-and-spacing-as-closely-as-possible-to-the-source-pdf-ensure-the-preview-and-the-saved-question-content-match-exactly-what-was-extracted-no-normalization-that-removes-symbols-or-collapses-whitespace",
+      "title": "Improve PDF-to-question extraction so imported questions preserve all Unicode symbols (e.g., λ, π), line breaks, and spacing as closely as possible to the source PDF; ensure the preview and the saved question content match exactly what was extracted (no normalization that removes symbols or collapses whitespace).",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-implement-an-end-of-session-results-review-experience-that-displays-the-student-s-saved-answers-for-the-completed-session-question-by-question-using-authoritative-data-from-the-backend-test-result-created-on-submission",
-      "title": "Implement an end-of-session results/review experience that displays the student’s saved answers for the completed session (question-by-question) using authoritative data from the backend test result created on submission.",
+      "id": "feature-update-pdf-import-to-include-figures-diagrams-from-the-pdf-in-the-imported-questions-so-that-questions-display-figures-as-part-of-the-question-content-as-closely-as-possible-to-the-original-pdf-figures-must-be-visible-in-the-import-preview-and-after-saving-when-viewing-practicing-the-question",
+      "title": "Update PDF import to include figures/diagrams from the PDF in the imported questions so that questions display figures as part of the question content as closely as possible to the original PDF; figures must be visible in the import preview and after saving when viewing/practicing the question.",
       "reqIds": [
         "REQ-2"
       ],
       "version": 1
     },
     {
-      "id": "feature-add-subject-wise-ranking-and-overall-ranking-of-all-students-overall-ranking-should-continue-to-work-as-a-global-leaderboard-and-subject-wise-ranking-should-rank-students-using-subject-specific-performance-aggregated-from-submitted-test-results",
-      "title": "Add subject-wise ranking and overall ranking of all students. Overall ranking should continue to work as a global leaderboard, and subject-wise ranking should rank students using subject-specific performance aggregated from submitted test results.",
+      "id": "feature-add-a-delete-option-for-questions-in-the-question-management-ui-wired-to-the-existing-backend-deletequestion-function-with-a-confirmation-step-and-automatic-refresh-of-question-lists-after-deletion-only-admins-should-be-allowed-to-perform-deletion-and-non-admins-must-not-be-shown-a-working-delete-control",
+      "title": "Add a delete option for questions in the question management UI, wired to the existing backend deleteQuestion function, with a confirmation step and automatic refresh of question lists after deletion; only admins should be allowed to perform deletion and non-admins must not be shown a working delete control.",
       "reqIds": [
         "REQ-3"
       ],
@@ -36,18 +37,18 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Persist/save each selected answer when user advances to the next question so previous answers remain stored for the session/result.",
+      "summary": "Fix PDF extraction/rendering so questions include all symbols (e.g., λ, π), preserve exact formatting, and include figures exactly as in the source PDF",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "Add results/ranking view showing subject-wise ranking of all students and overall ranking.",
+      "summary": "Add an option to delete questions from the question list (admin delete button wired to backend deleteQuestion)",
       "reqIds": [],
       "status": "pending"
     }
   ],
-  "projectName": "Persist answers across question navigation and add subject-wise + overall student rankings",
+  "projectName": "Fix PDF import fidelity (symbols/formatting/figures) and add delete-question option",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

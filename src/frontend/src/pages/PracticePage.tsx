@@ -1,256 +1,139 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { useGetQuestionsForChapter, useSubmitTestResult, useGetOrCreatePracticeProgress, useSavePracticeProgress } from '../hooks/useQueries';
+import { useNavigate, useSearch } from '@tanstack/react-router';
+import { useActor } from '../hooks/useActor';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import {
+  useGetQuestionsForChapter,
+  useGetQuestionsForYear,
+  useSubmitTestResult,
+  useGetOrCreatePracticeProgress,
+  useSavePracticeProgress,
+} from '../hooks/useQueries';
 import { usePracticeTimer } from '../hooks/usePracticeTimer';
 import MobilePage from '../components/layout/MobilePage';
 import QuestionNavigator from '../components/practice/QuestionNavigator';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Clock, Loader2, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ArrowLeft, ArrowRight, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { Subject, QuestionAttempt, Category, PracticeProgressKey } from '../backend';
-import { cn } from '@/lib/utils';
-import { loadLastIndex, saveLastIndex, clearProgress, createStorageKey } from '../utils/practiceProgressStorage';
-import type { PerQuestionAnswer } from '../types/practice';
+import type { Subject, Category, QuestionAttempt, Question, PracticeProgressKey } from '../backend';
+import { loadPracticeProgress, savePracticeProgress as saveLocalProgress, StoredAnswer } from '../utils/practiceProgressStorage';
+
+interface PracticeSearchParams {
+  subject: Subject;
+  chapterId: string;
+  category: Category;
+  year?: string;
+}
+
+interface QuestionAnswer {
+  questionId: bigint;
+  selectedOption: string | null;
+  timeTaken: bigint;
+}
 
 export default function PracticePage() {
   const navigate = useNavigate();
-  const { subject, chapterId, category } = useParams({ from: '/practice/$subject/$chapterId/$category' });
-  const search = useSearch({ from: '/practice/$subject/$chapterId/$category' });
-  const year = (search as any)?.year as number | undefined;
-  
+  const search = useSearch({ strict: false }) as PracticeSearchParams;
+  const { actor } = useActor();
   const { identity } = useInternetIdentity();
-  const { data: allQuestions, isLoading } = useGetQuestionsForChapter(BigInt(chapterId));
-  const submitResult = useSubmitTestResult();
-  const savePracticeProgressMutation = useSavePracticeProgress();
 
-  const progressKey: PracticeProgressKey = {
-    subject: subject as Subject,
-    chapterId: BigInt(chapterId),
-    category: category as Category,
-    year: year !== undefined ? BigInt(year) : undefined,
-  };
+  const { subject, chapterId, category, year } = search;
+  const chapterIdBigInt = chapterId ? BigInt(chapterId) : null;
+  const yearBigInt = year ? BigInt(year) : undefined;
 
-  const { data: backendProgress, isLoading: progressLoading } = useGetOrCreatePracticeProgress(
-    progressKey,
-    BigInt(allQuestions?.length || 0)
+  const isPYQ = category === 'neetPYQ' || category === 'jeePYQ';
+  const isYearFiltered = isPYQ && yearBigInt !== undefined;
+
+  const { data: chapterQuestions, isLoading: chapterQuestionsLoading } = useGetQuestionsForChapter(
+    !isYearFiltered ? chapterIdBigInt : null
+  );
+  const { data: yearQuestions, isLoading: yearQuestionsLoading } = useGetQuestionsForYear(
+    isYearFiltered ? yearBigInt! : null,
+    isYearFiltered ? category : ('level1' as Category)
   );
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
-  
-  // Store per-question answers keyed by question index
-  const [answersMap, setAnswersMap] = useState<Map<number, PerQuestionAnswer>>(new Map());
-  
-  const [progressRestored, setProgressRestored] = useState(false);
-  const timer = usePracticeTimer();
+  const isLoading = isYearFiltered ? yearQuestionsLoading : chapterQuestionsLoading;
+  const allQuestions = isYearFiltered ? yearQuestions : chapterQuestions;
 
-  // Filter questions by category and optional year
-  let questions = allQuestions?.filter((q) => q.category === (category as Category)) || [];
-  
-  // For PYQ categories, filter by year if provided
-  if (year !== undefined && (category === Category.neetPYQ || category === Category.jeePYQ)) {
-    questions = questions.filter((q) => q.year !== undefined && Number(q.year) === year);
-  }
+  const questions = allQuestions?.filter((q) => q.category === category) || [];
 
-  const currentQuestion = questions?.[currentIndex];
-  const totalQuestions = questions?.length || 0;
-  const progress = totalQuestions > 0 ? ((currentIndex + 1) / totalQuestions) * 100 : 0;
-
-  // Track which questions have been answered
-  const answeredQuestions = new Set(answersMap.keys());
-
-  // Restore progress on mount
-  useEffect(() => {
-    if (questions && questions.length > 0 && !progressRestored) {
-      let restoredIndex = 0;
-
-      if (identity && backendProgress && !progressLoading) {
-        // Authenticated user: use backend progress
-        const lastQuestionIndex = Number(backendProgress.lastQuestionIndex);
-        if (lastQuestionIndex > 0 && lastQuestionIndex <= questions.length) {
-          restoredIndex = lastQuestionIndex - 1; // Convert 1-based to 0-based
-        }
-      } else if (!identity) {
-        // Anonymous user: use localStorage
-        const storageKey = createStorageKey(subject, chapterId, category, year);
-        const savedIndex = loadLastIndex(storageKey);
-        if (savedIndex !== null && savedIndex >= 0 && savedIndex < questions.length) {
-          restoredIndex = savedIndex;
-        }
-      }
-
-      setCurrentIndex(restoredIndex);
-      setProgressRestored(true);
-      timer.start();
-    }
-  }, [questions, backendProgress, identity, progressLoading, progressRestored]);
-
-  // Restore selected option when navigating to a question that was already answered
-  useEffect(() => {
-    if (currentQuestion && progressRestored) {
-      const savedAnswer = answersMap.get(currentIndex);
-      if (savedAnswer) {
-        setSelectedOption(savedAnswer.selectedOption);
-        setShowFeedback(false); // Don't show feedback when returning to answered question
-      } else {
-        setSelectedOption(null);
-        setShowFeedback(false);
-      }
-      timer.reset();
-      timer.start();
-    }
-  }, [currentIndex, progressRestored]);
-
-  // Save progress whenever currentIndex changes
-  useEffect(() => {
-    if (questions && questions.length > 0 && currentQuestion && progressRestored) {
-      const storageKey = createStorageKey(subject, chapterId, category, year);
-
-      if (identity) {
-        // Authenticated: save to backend (1-based index)
-        savePracticeProgressMutation.mutate({
-          key: progressKey,
-          progress: {
-            lastQuestionIndex: BigInt(currentIndex + 1),
-            discoveredQuestionIds: questions.slice(0, currentIndex + 1).map((q) => q.id),
-          },
-        });
-      } else {
-        // Anonymous: save to localStorage
-        saveLastIndex(storageKey, currentIndex);
-      }
-    }
-  }, [currentIndex, questions, currentQuestion, identity, progressRestored]);
-
-  const handleOptionSelect = (option: string) => {
-    if (!showFeedback) {
-      setSelectedOption(option);
-    }
+  const progressKey: PracticeProgressKey = {
+    subject,
+    chapterId: chapterIdBigInt!,
+    category,
+    year: yearBigInt,
   };
 
-  const handleSubmitAnswer = () => {
-    if (!currentQuestion || !selectedOption) {
-      toast.error('Please select an option');
-      return;
+  const { data: serverProgress, isLoading: progressLoading } = useGetOrCreatePracticeProgress(
+    progressKey,
+    BigInt(questions.length)
+  );
+  const savePracticeProgressMutation = useSavePracticeProgress();
+  const submitTestResult = useSubmitTestResult();
+
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [answers, setAnswers] = useState<Map<number, QuestionAnswer>>(new Map());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { elapsedMicroseconds, isRunning, start, stop, reset } = usePracticeTimer();
+
+  const isAuthenticated = !!identity;
+
+  useEffect(() => {
+    if (!isLoading && questions.length > 0 && !progressLoading) {
+      let startIndex = 0;
+      let loadedAnswers = new Map<number, QuestionAnswer>();
+
+      if (isAuthenticated && serverProgress) {
+        startIndex = Number(serverProgress.lastQuestionIndex) - 1;
+        if (startIndex < 0) startIndex = 0;
+        if (startIndex >= questions.length) startIndex = questions.length - 1;
+      } else {
+        const localProgress = loadPracticeProgress(subject, chapterId, category, year);
+        if (localProgress) {
+          startIndex = localProgress.lastQuestionIndex;
+          if (startIndex < 0) startIndex = 0;
+          if (startIndex >= questions.length) startIndex = questions.length - 1;
+
+          if (localProgress.answers) {
+            Object.entries(localProgress.answers).forEach(([qIdStr, answer]) => {
+              const typedAnswer = answer as StoredAnswer;
+              const qId = BigInt(qIdStr);
+              const qIndex = questions.findIndex((q) => q.id === qId);
+              if (qIndex !== -1 && typedAnswer.selectedOption) {
+                loadedAnswers.set(qIndex, {
+                  questionId: qId,
+                  selectedOption: typedAnswer.selectedOption,
+                  timeTaken: BigInt(typedAnswer.timeTaken || 0),
+                });
+              }
+            });
+          }
+        }
+      }
+
+      setCurrentQuestionIndex(startIndex);
+      setAnswers(loadedAnswers);
+      start();
     }
+  }, [isLoading, questions.length, progressLoading, serverProgress, isAuthenticated, subject, chapterId, category, year]);
 
-    timer.stop();
-    setShowFeedback(true);
-  };
-
-  const handleNext = () => {
-    if (!currentQuestion || !selectedOption) return;
-
-    // Save the answer for this question
-    const answer: PerQuestionAnswer = {
-      selectedOption,
-      isCorrect: selectedOption === currentQuestion.correctOption,
-      timeTaken: timer.elapsedMicroseconds,
+  useEffect(() => {
+    return () => {
+      stop();
     };
-    
-    setAnswersMap(prev => {
-      const newMap = new Map(prev);
-      newMap.set(currentIndex, answer);
-      return newMap;
-    });
+  }, []);
 
-    if (currentIndex < totalQuestions - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setShowFeedback(false);
-    } else {
-      // Build final attempts array from all answered questions
-      const finalAttempts: QuestionAttempt[] = [];
-      const updatedAnswersMap = new Map(answersMap);
-      updatedAnswersMap.set(currentIndex, answer);
-      
-      // Iterate through questions in order and collect attempts
-      for (let i = 0; i < questions.length; i++) {
-        const savedAnswer = updatedAnswersMap.get(i);
-        if (savedAnswer) {
-          finalAttempts.push({
-            questionId: questions[i].id,
-            chosenOption: savedAnswer.selectedOption,
-            isCorrect: savedAnswer.isCorrect,
-            timeTaken: savedAnswer.timeTaken,
-          });
-        }
-      }
-      
-      handleSubmit(finalAttempts);
-    }
-  };
-
-  const handleSubmit = async (finalAttempts: QuestionAttempt[]) => {
-    try {
-      const resultId = await submitResult.mutateAsync({
-        subject: subject as Subject,
-        chapterId: BigInt(chapterId),
-        attempts: finalAttempts,
-      });
-      toast.success('Test completed!');
-
-      // Clear progress after submission
-      const storageKey = createStorageKey(subject, chapterId, category, year);
-      if (identity) {
-        savePracticeProgressMutation.mutate({
-          key: progressKey,
-          progress: {
-            lastQuestionIndex: BigInt(1),
-            discoveredQuestionIds: [],
-          },
-        });
-      } else {
-        clearProgress(storageKey);
-      }
-
-      navigate({ to: '/results/$resultId', params: { resultId: resultId.toString() } });
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to submit test');
-    }
-  };
-
-  const handleNavigateToQuestion = (index: number) => {
-    if (showFeedback) {
-      // Clear feedback state when navigating
-      setShowFeedback(false);
-    }
-    setCurrentIndex(index);
-  };
-
-  const handleRestart = () => {
-    setCurrentIndex(0);
-    setShowFeedback(false);
-    setSelectedOption(null);
-    setAnswersMap(new Map());
-    timer.reset();
-    timer.start();
-
-    // Clear saved progress
-    const storageKey = createStorageKey(subject, chapterId, category, year);
-    if (identity) {
-      savePracticeProgressMutation.mutate({
-        key: progressKey,
-        progress: {
-          lastQuestionIndex: BigInt(1),
-          discoveredQuestionIds: [],
-        },
-      });
-    } else {
-      clearProgress(storageKey);
-    }
-
-    toast.success('Practice restarted from question 1');
-  };
-
-  if (isLoading || !progressRestored) {
+  if (isLoading || progressLoading) {
     return (
       <MobilePage>
-        <div className="flex items-center justify-center py-12">
+        <div className="flex flex-col items-center justify-center py-12 space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading questions...</p>
         </div>
       </MobilePage>
     );
@@ -259,37 +142,136 @@ export default function PracticePage() {
   if (!questions || questions.length === 0) {
     return (
       <MobilePage maxWidth="md">
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No questions available for this category</p>
-            <Button
-              className="mt-4"
-              onClick={() =>
-                navigate({
-                  to: '/chapter/$subject/$chapterId/category',
-                  params: { subject: subject as Subject, chapterId },
-                })
-              }
-            >
-              Go Back
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Button variant="ghost" size="icon" onClick={() => navigate({ to: '/subject' })}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>No questions available for this selection.</AlertDescription>
+          </Alert>
+        </div>
       </MobilePage>
     );
   }
 
-  const options = [
-    { label: 'A', value: 'A', text: currentQuestion?.optionA },
-    { label: 'B', value: 'B', text: currentQuestion?.optionB },
-    { label: 'C', value: 'C', text: currentQuestion?.optionC },
-    { label: 'D', value: 'D', text: currentQuestion?.optionD },
-  ];
+  const currentQuestion = questions[currentQuestionIndex];
+  const currentAnswer = answers.get(currentQuestionIndex);
+  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+  const answeredCount = answers.size;
 
-  const isCorrect = selectedOption === currentQuestion?.correctOption;
+  const handleOptionSelect = (option: string) => {
+    const elapsed = elapsedMicroseconds;
+    const newAnswer: QuestionAnswer = {
+      questionId: currentQuestion.id,
+      selectedOption: option,
+      timeTaken: elapsed,
+    };
+
+    const newAnswers = new Map(answers);
+    newAnswers.set(currentQuestionIndex, newAnswer);
+    setAnswers(newAnswers);
+
+    if (!isAuthenticated) {
+      const answersObj: Record<string, StoredAnswer> = {};
+      newAnswers.forEach((ans) => {
+        answersObj[ans.questionId.toString()] = {
+          selectedOption: ans.selectedOption || '',
+          timeTaken: Number(ans.timeTaken),
+        };
+      });
+      saveLocalProgress(subject, chapterId, category, currentQuestionIndex, answersObj, year);
+    }
+  };
+
+  const handleNext = async () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      reset();
+      start();
+
+      if (isAuthenticated && actor) {
+        try {
+          await savePracticeProgressMutation.mutateAsync({
+            key: progressKey,
+            progress: {
+              lastQuestionIndex: BigInt(nextIndex + 1),
+              discoveredQuestionIds: questions.slice(0, nextIndex + 1).map((q) => q.id),
+            },
+          });
+        } catch (error) {
+          console.error('Failed to save progress:', error);
+        }
+      } else {
+        const answersObj: Record<string, StoredAnswer> = {};
+        answers.forEach((ans) => {
+          answersObj[ans.questionId.toString()] = {
+            selectedOption: ans.selectedOption || '',
+            timeTaken: Number(ans.timeTaken),
+          };
+        });
+        saveLocalProgress(subject, chapterId, category, nextIndex, answersObj, year);
+      }
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+      reset();
+      start();
+    }
+  };
+
+  const handleQuestionNavigate = (index: number) => {
+    setCurrentQuestionIndex(index);
+    reset();
+    start();
+  };
+
+  const handleSubmit = async () => {
+    if (answers.size === 0) {
+      toast.error('Please answer at least one question before submitting');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      toast.error('Please log in to submit your test');
+      return;
+    }
+
+    setIsSubmitting(true);
+    stop();
+
+    try {
+      const attempts: QuestionAttempt[] = Array.from(answers.values()).map((answer) => {
+        const question = questions.find((q) => q.id === answer.questionId);
+        return {
+          questionId: answer.questionId,
+          chosenOption: answer.selectedOption || '',
+          isCorrect: answer.selectedOption === question?.correctOption,
+          timeTaken: answer.timeTaken,
+        };
+      });
+
+      const resultId = await submitTestResult.mutateAsync({
+        subject,
+        chapterId: chapterIdBigInt!,
+        attempts,
+      });
+
+      toast.success('Test submitted successfully!');
+      navigate({ to: '/results/$resultId', params: { resultId: resultId.toString() } });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to submit test');
+      setIsSubmitting(false);
+      start();
+    }
+  };
 
   return (
-    <MobilePage maxWidth="lg">
+    <MobilePage maxWidth="xl">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <Button
@@ -298,102 +280,71 @@ export default function PracticePage() {
             onClick={() =>
               navigate({
                 to: '/chapter/$subject/$chapterId/category',
-                params: { subject: subject as Subject, chapterId },
+                params: { subject, chapterId },
               })
             }
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="w-4 h-4" />
-            <span className="font-mono">{timer.elapsedSeconds}s</span>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">
+              {answeredCount}/{questions.length} answered
+            </Badge>
           </div>
         </div>
-
-        {/* Prominent Question Number Display */}
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-3xl font-bold text-primary">
-                  Question {currentIndex + 1}
-                  <span className="text-xl text-muted-foreground"> of {totalQuestions}</span>
-                </p>
-                {year !== undefined && (
-                  <p className="text-sm text-muted-foreground mt-1">Year: {year}</p>
-                )}
-              </div>
-              <Button variant="outline" size="sm" onClick={handleRestart}>
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Restart
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Question Navigator */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Jump to Question</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <QuestionNavigator
-              totalQuestions={totalQuestions}
-              currentIndex={currentIndex}
-              onNavigate={handleNavigateToQuestion}
-              disabled={false}
-              answeredQuestions={answeredQuestions}
-            />
-          </CardContent>
-        </Card>
 
         <div className="space-y-2">
-          <Progress value={progress} className="h-2" />
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>Progress</span>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Progress</span>
             <span className="font-medium">{Math.round(progress)}%</span>
           </div>
+          <Progress value={progress} />
         </div>
+
+        <QuestionNavigator
+          totalQuestions={questions.length}
+          currentIndex={currentQuestionIndex}
+          answeredQuestions={new Set(Array.from(answers.keys()))}
+          onNavigate={handleQuestionNavigate}
+        />
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg leading-relaxed">{currentQuestion?.questionText}</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardDescription>
+                Question {currentQuestionIndex + 1} of {questions.length}
+              </CardDescription>
+              <Badge>{category}</Badge>
+            </div>
+            <CardTitle className="text-lg whitespace-pre-wrap break-words">{currentQuestion.questionText}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {options.map((option) => {
-              const isSelected = selectedOption === option.value;
-              const isCorrectOption = option.value === currentQuestion?.correctOption;
-              const showCorrect = showFeedback && isCorrectOption;
-              const showIncorrect = showFeedback && isSelected && !isCorrect;
+            {['A', 'B', 'C', 'D'].map((option) => {
+              const optionText = currentQuestion[`option${option}` as keyof Question] as string;
+              const isSelected = currentAnswer?.selectedOption === option;
 
               return (
                 <button
-                  key={option.value}
-                  onClick={() => handleOptionSelect(option.value)}
-                  disabled={showFeedback}
-                  className={cn(
-                    'w-full text-left p-4 rounded-lg border-2 transition-all',
-                    !showFeedback && 'hover:border-primary hover:bg-primary/5',
-                    isSelected && !showFeedback && 'border-primary bg-primary/10',
-                    !isSelected && !showFeedback && 'border-border bg-card',
-                    showCorrect && 'border-green-500 bg-green-50 dark:bg-green-950',
-                    showIncorrect && 'border-red-500 bg-red-50 dark:bg-red-950',
-                    showFeedback && !showCorrect && !showIncorrect && 'opacity-50'
-                  )}
+                  key={option}
+                  onClick={() => handleOptionSelect(option)}
+                  className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
+                    isSelected
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:border-primary/50 hover:bg-accent'
+                  }`}
                 >
                   <div className="flex items-start gap-3">
                     <div
-                      className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center font-semibold flex-shrink-0',
-                        isSelected && !showFeedback && 'bg-primary text-primary-foreground',
-                        !isSelected && !showFeedback && 'bg-muted text-muted-foreground',
-                        showCorrect && 'bg-green-500 text-white',
-                        showIncorrect && 'bg-red-500 text-white'
-                      )}
+                      className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                        isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground'
+                      }`}
                     >
-                      {showCorrect ? <CheckCircle2 className="w-5 h-5" /> : showIncorrect ? <XCircle className="w-5 h-5" /> : option.label}
+                      {isSelected && <CheckCircle className="w-4 h-4" />}
                     </div>
-                    <p className="flex-1 pt-1">{option.text}</p>
+                    <div className="flex-1">
+                      <span className="font-medium">{option}.</span>{' '}
+                      <span className="whitespace-pre-wrap break-words">{optionText}</span>
+                    </div>
                   </div>
                 </button>
               );
@@ -401,59 +352,38 @@ export default function PracticePage() {
           </CardContent>
         </Card>
 
-        {/* Feedback Section */}
-        {showFeedback && (
-          <Card className={cn(isCorrect ? 'border-green-500 bg-green-50 dark:bg-green-950' : 'border-red-500 bg-red-50 dark:bg-red-950')}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {isCorrect ? (
-                  <>
-                    <CheckCircle2 className="w-6 h-6 text-green-600" />
-                    <span className="text-green-600">Correct!</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-6 h-6 text-red-600" />
-                    <span className="text-red-600">Incorrect</span>
-                  </>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="font-semibold text-sm mb-1">Correct Answer:</p>
-                <p className="text-sm">
-                  <span className="font-bold">{currentQuestion?.correctOption}</span> - {options.find((o) => o.value === currentQuestion?.correctOption)?.text}
-                </p>
-              </div>
-              {currentQuestion?.explanation && (
-                <div>
-                  <p className="font-semibold text-sm mb-1">Explanation:</p>
-                  <p className="text-sm">{currentQuestion.explanation}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        <div className="flex items-center justify-between gap-4">
+          <Button variant="outline" onClick={handlePrevious} disabled={currentQuestionIndex === 0}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Previous
+          </Button>
 
-        {/* Action Button */}
-        {!showFeedback ? (
-          <Button onClick={handleSubmitAnswer} disabled={!selectedOption} className="w-full" size="lg">
-            Submit Answer
-          </Button>
-        ) : (
-          <Button onClick={handleNext} disabled={submitResult.isPending} className="w-full" size="lg">
-            {submitResult.isPending ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Submitting...
-              </>
-            ) : currentIndex < totalQuestions - 1 ? (
-              'Next Question'
-            ) : (
-              'Submit Test'
-            )}
-          </Button>
+          {currentQuestionIndex === questions.length - 1 ? (
+            <Button onClick={handleSubmit} disabled={isSubmitting || !isAuthenticated} className="flex-1">
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                'Submit Test'
+              )}
+            </Button>
+          ) : (
+            <Button onClick={handleNext} className="flex-1">
+              Next
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          )}
+        </div>
+
+        {!isAuthenticated && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              You are practicing anonymously. Log in to save your progress and submit your test results.
+            </AlertDescription>
+          </Alert>
         )}
       </div>
     </MobilePage>

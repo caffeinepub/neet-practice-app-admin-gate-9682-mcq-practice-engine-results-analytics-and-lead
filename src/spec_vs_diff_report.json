@@ -1,62 +1,43 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-08T08:20:38.448Z",
-  "summary": "REQ-1/REQ-2/REQ-3 appear largely implemented on the frontend (answer persistence, results review page, and subject/overall rankings UI). Backend support for subject stats and authorization is suggested by new types/imports, but key backend query/method implementations are not directly visible in the provided (truncated) backend diff summary. Several additional non-requested UX/style/admin/contributor improvements and a migration module were added.",
-  "missing_requirements": [],
-  "hallucinated_features": [
+  "generatedAt": "2026-02-08T16:15:05.143Z",
+  "summary": "Diff adds PDF.js-based text reconstruction to better preserve Unicode and whitespace, introduces optional question/explanation image fields with a backend migration, updates PDF import preview to display an extracted image when present, and begins wiring admin-aware question deletion (hooks and UI state). However, based on the provided truncated diff summary, some acceptance-criteria behaviors (notably figures persisting/being rendered after save, and complete admin-only delete UI behavior) are not fully evidenced.",
+  "missing_requirements": [
     {
-      "description": "Added a backend migration module and wired it into the actor via `(with migration = Migration.run)`.",
-      "reason": "BuildRequest did not ask for data migration functionality or a separate migration module file; it is an extra implementation detail added beyond the stated requirements.",
+      "id": "REQ-2",
+      "requirement": "Include figures/diagrams from the PDF in imported questions; figures must be visible in the import preview and after saving wherever the question is rendered; importing PDFs without figures must still work.",
+      "reason": "Preview rendering for an image is present and backend state supports storing images, but the diff summary does not show (a) reliable extraction/assignment of per-question figures (only a helper to render a full page to PNG is shown; mapping to questions is truncated), nor (b) rendering of saved question images in the general question views/practice/results. The AC requires figures remain visible after saving across the app.",
       "evidence": [
+        "frontend/src/components/contributor/PdfImportPreviewList.tsx",
+        "frontend/src/utils/pdf/pdfToQuestions.ts",
+        "backend/main.mo",
         "backend/migration.mo",
-        "backend/main.mo"
-      ]
-    },
-    {
-      "description": "Contributor page connection timeout/retry UX and related state management.",
-      "reason": "Not requested by REQ-1/REQ-2/REQ-3; this is additional contributor/admin UX work.",
-      "evidence": [
-        "frontend/src/pages/ContributorPage.tsx"
-      ]
-    },
-    {
-      "description": "Home page contributor card disables navigation until actor is ready and shows 'Connecting to the canister...' loading UI.",
-      "reason": "Not part of the requested answer persistence/results/rankings feature set.",
-      "evidence": [
-        "frontend/src/pages/HomePage.tsx"
-      ]
-    },
-    {
-      "description": "Global UI/theme/palette changes and branding/AppShell updates (education-focused color palette, branding, drawer banner, live name validation warning).",
-      "reason": "Not requested in BuildRequest and unrelated to REQ-1/REQ-2/REQ-3 functional requirements.",
-      "evidence": [
         "frontend-file-summaries.txt"
       ]
     },
     {
-      "description": "New frontend authorization helper hook(s) for contributor access (useAuthz) and removal of an unlockContributorMode hook due to missing backend method.",
-      "reason": "Authorization hook restructuring was not requested as part of the specified requirements.",
+      "id": "REQ-3",
+      "requirement": "Add an admin-only delete option for questions in question management UI, wired to existing backend deleteQuestion, with confirmation and automatic refresh after deletion; non-admins must not have a working/enabled delete control.",
+      "reason": "The diff shows new delete-dialog state and the presence of admin-check hook usage, but the truncated summary does not clearly show the actual delete control being rendered, gated by admin status, invoking deleteQuestion, and triggering a list refresh (e.g., react-query invalidation). Non-admin behavior is also not evidenced in the provided snippets.",
       "evidence": [
-        "frontend/src/hooks/useAuthz.ts",
-        "frontend-file-summaries.txt"
+        "frontend/src/pages/ContributorPage.tsx",
+        "frontend/src/hooks/useQueries.ts"
       ]
     }
   ],
+  "hallucinated_features": [],
   "confidence": 0.62,
   "changed_files": [
     "backend/main.mo",
     "backend/migration.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/components/practice/QuestionNavigator.tsx",
-    "frontend/src/hooks/useAuthz.ts",
+    "frontend/src/components/contributor/PdfImportPreviewList.tsx",
     "frontend/src/hooks/useQueries.ts",
     "frontend/src/pages/ContributorPage.tsx",
-    "frontend/src/pages/HomePage.tsx",
-    "frontend/src/pages/PracticePage.tsx",
-    "frontend/src/pages/RankingsPage.tsx",
-    "frontend/src/pages/ResultsPage.tsx",
-    "frontend/src/types/practice.ts",
+    "frontend/src/utils/pdf/pdfTextReconstruction.ts",
+    "frontend/src/utils/pdf/pdfToQuestions.ts",
+    "frontend/src/utils/pdf/pdfjsClient.ts",
     "project_state.json"
   ]
 }

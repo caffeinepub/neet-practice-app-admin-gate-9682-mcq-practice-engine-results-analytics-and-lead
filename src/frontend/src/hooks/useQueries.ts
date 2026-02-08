@@ -41,6 +41,22 @@ export function useSaveCallerUserProfile() {
   });
 }
 
+// Admin Check
+export function useIsCallerAdmin() {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+
+  return useQuery<boolean>({
+    queryKey: ['isCallerAdmin'],
+    queryFn: async () => {
+      if (!actor) return false;
+      return actor.isCallerAdmin();
+    },
+    enabled: !!actor && !actorFetching && !!identity,
+    retry: false,
+  });
+}
+
 // Chapters
 export function useGetChaptersBySubject(subject: Subject | null) {
   const { actor, isFetching: actorFetching } = useActor();
@@ -128,6 +144,19 @@ export function useGetQuestionsForChapter(chapterId: bigint | null) {
   });
 }
 
+export function useGetQuestionsForYear(year: bigint | null, category: Category) {
+  const { actor, isFetching: actorFetching } = useActor();
+
+  return useQuery<Question[]>({
+    queryKey: ['questions', 'year', year?.toString(), category],
+    queryFn: async () => {
+      if (!actor || year === null) return [];
+      return actor.getQuestionsForYear(year, category);
+    },
+    enabled: !!actor && !actorFetching && year !== null,
+  });
+}
+
 export function useListQuestions(hasContributorAccess?: boolean) {
   const { actor, isFetching: actorFetching } = useActor();
 
@@ -158,6 +187,8 @@ export function useCreateQuestion() {
       explanation,
       category,
       year,
+      questionImage,
+      explanationImage,
     }: {
       subject: Subject;
       chapterId: bigint;
@@ -170,9 +201,40 @@ export function useCreateQuestion() {
       explanation: string;
       category: Category;
       year?: bigint | null;
+      questionImage?: any;
+      explanationImage?: any;
     }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.createQuestion(subject, chapterId, questionText, optionA, optionB, optionC, optionD, correctOption, explanation, category, year ?? null);
+      return actor.createQuestion(
+        subject,
+        chapterId,
+        questionText,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
+        correctOption,
+        explanation,
+        category,
+        year ?? null,
+        questionImage ?? null,
+        explanationImage ?? null
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+    },
+  });
+}
+
+export function useCreateQuestionsBulk() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (questions: Question[]) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.createQuestionsBulk(questions);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['questions'] });
@@ -196,6 +258,8 @@ export function useUpdateQuestion() {
       explanation,
       category,
       year,
+      questionImage,
+      explanationImage,
     }: {
       id: bigint;
       questionText: string;
@@ -207,9 +271,24 @@ export function useUpdateQuestion() {
       explanation: string;
       category: Category;
       year?: bigint | null;
+      questionImage?: any;
+      explanationImage?: any;
     }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.updateQuestion(id, questionText, optionA, optionB, optionC, optionD, correctOption, explanation, category, year ?? null);
+      return actor.updateQuestion(
+        id,
+        questionText,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
+        correctOption,
+        explanation,
+        category,
+        year ?? null,
+        questionImage ?? null,
+        explanationImage ?? null
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['questions'] });

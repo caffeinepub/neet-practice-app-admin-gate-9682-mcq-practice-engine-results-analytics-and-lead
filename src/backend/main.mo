@@ -8,6 +8,8 @@ import Time "mo:core/Time";
 import Nat "mo:core/Nat";
 import Runtime "mo:core/Runtime";
 import Iter "mo:core/Iter";
+import Storage "blob-storage/Storage";
+import MixinStorage "blob-storage/Mixin";
 
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
@@ -15,6 +17,8 @@ import Migration "migration";
 
 (with migration = Migration.run)
 actor {
+  include MixinStorage();
+
   type Subject = {
     #physics;
     #chemistry;
@@ -87,6 +91,8 @@ actor {
     category : Category;
     createdAt : Int;
     year : ?Nat;
+    questionImage : ?Storage.ExternalBlob;
+    explanationImage : ?Storage.ExternalBlob;
   };
 
   module Question {
@@ -211,9 +217,51 @@ actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
+  // ========= CONTRIBUTOR ACCESS MANAGEMENT ========= //
+  public shared ({ caller }) func verifyContributorPassword(password : Text) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can verify contributor password");
+    };
+
+    if (password == contributorPassword) {
+      contributorAccess.add(caller, true);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public shared ({ caller }) func grantContributorAccess(user : Principal) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can grant contributor access");
+    };
+    contributorAccess.add(user, true);
+  };
+
+  public shared ({ caller }) func revokeContributorAccess(user : Principal) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can revoke contributor access");
+    };
+    contributorAccess.remove(user);
+  };
+
+  public shared ({ caller }) func updateContributorPassword(newPassword : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can update contributor password");
+    };
+    contributorPassword := newPassword;
+  };
+
+  public query ({ caller }) func isCallerContributor() : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can check contributor status");
+    };
+    isContributor(caller);
+  };
+
   // ========= RESOURCE GUARDS ========= //
   public query ({ caller }) func getTotalAuthenticatedUsers() : async Nat {
-    if (not (isContributor(caller))) {
+    if (not (isContributor(caller) or AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only contributors can view authenticated user stats");
     };
     totalAuthenticatedUsers;
@@ -268,7 +316,7 @@ actor {
     description : Text,
     sequence : Nat,
   ) : async Nat {
-    if (not isContributor(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (not (isContributor(caller) or AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only contributors can create chapters");
     };
 
@@ -288,7 +336,7 @@ actor {
 
   // Allow contributors to update chapter metadata (but not create/delete)
   public shared ({ caller }) func updateChapter(id : Nat, title : Text, description : Text, sequence : Nat) : async () {
-    if (not (isContributor(caller))) {
+    if (not (isContributor(caller) or AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only contributors can update chapters");
     };
 
@@ -339,8 +387,10 @@ actor {
     explanation : Text,
     category : Category,
     year : ?Nat,
+    questionImage : ?Storage.ExternalBlob,
+    explanationImage : ?Storage.ExternalBlob,
   ) : async Nat {
-    if (not isContributor(caller)) {
+    if (not (isContributor(caller) or AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only contributors can create questions");
     };
 
@@ -358,11 +408,33 @@ actor {
       category;
       createdAt = Time.now();
       year;
+      questionImage;
+      explanationImage;
     };
     questions.add(nextQuestionId, question);
     let currentId = nextQuestionId;
     nextQuestionId += 1;
     currentId;
+  };
+
+  // New bulk-create path for PDF imports
+  public shared ({ caller }) func createQuestionsBulk(questionsInput : [Question]) : async [Nat] {
+    if (not (isContributor(caller) or AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only contributors can create questions");
+    };
+
+    let newQuestionIds = questionsInput.map(
+      func(question) {
+        let newQuestion : Question = {
+          question with id = nextQuestionId;
+        };
+        questions.add(nextQuestionId, newQuestion);
+        nextQuestionId += 1;
+        nextQuestionId;
+      }
+    );
+
+    newQuestionIds;
   };
 
   public shared ({ caller }) func updateQuestion(
@@ -376,8 +448,10 @@ actor {
     explanation : Text,
     category : Category,
     year : ?Nat,
+    questionImage : ?Storage.ExternalBlob,
+    explanationImage : ?Storage.ExternalBlob,
   ) : async () {
-    if (not isContributor(caller)) {
+    if (not (isContributor(caller) or AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only contributors can update questions");
     };
 
@@ -397,6 +471,8 @@ actor {
           category;
           createdAt = question.createdAt;
           year;
+          questionImage;
+          explanationImage;
         };
         questions.add(id, updatedQuestion);
       };
@@ -414,15 +490,24 @@ actor {
     questions.remove(id);
   };
 
-  public query func listQuestions() : async [Question] {
+  public query ({ caller }) func listQuestions() : async [Question] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can list questions");
+    };
     questions.values().toArray();
   };
 
-  public query func getQuestionsForChapter(chapterId : Nat) : async [Question] {
+  public query ({ caller }) func getQuestionsForChapter(chapterId : Nat) : async [Question] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view questions");
+    };
     questions.values().toArray().filter(func(q) { q.chapterId == chapterId });
   };
 
-  public query func getQuestionsForYear(year : Nat, category : Category) : async [Question] {
+  public query ({ caller }) func getQuestionsForYear(year : Nat, category : Category) : async [Question] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view questions");
+    };
     questions.values().toArray().filter(
       func(q) {
         switch (q.year) {
@@ -600,6 +685,7 @@ actor {
 
   // ========= LEADERBOARD ========= //
   public query func getLeaderboard() : async [UserStats] {
+    // Public leaderboard - no authorization needed
     userStats.values().toArray().sort();
   };
 

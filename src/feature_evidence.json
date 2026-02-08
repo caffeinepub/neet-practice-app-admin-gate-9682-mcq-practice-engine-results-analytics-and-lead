@@ -2,12 +2,13 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-update-the-practice-question-flow-so-that-when-a-student-submits-an-answer-and-moves-slides-to-the-next-question-the-previously-selected-answer-is-retained-for-that-question-and-is-available-at-the-end-of-the-session-for-review-including-when-navigating-back-to-previous-questions-using-the-question-navigator",
-      "featureTitle": "Update the practice question flow so that when a student submits an answer and moves (slides) to the next question, the previously selected answer is retained for that question and is available at the end of the session for review (including when navigating back to previous questions using the question navigator).",
+      "featureId": "feature-improve-pdf-to-question-extraction-so-imported-questions-preserve-all-unicode-symbols-e-g-line-breaks-and-spacing-as-closely-as-possible-to-the-source-pdf-ensure-the-preview-and-the-saved-question-content-match-exactly-what-was-extracted-no-normalization-that-removes-symbols-or-collapses-whitespace",
+      "featureTitle": "Improve PDF-to-question extraction so imported questions preserve all Unicode symbols (e.g., λ, π), line breaks, and spacing as closely as possible to the source PDF; ensure the preview and the saved question content match exactly what was extracted (no normalization that removes symbols or collapses whitespace).",
       "files": [
-        "frontend/src/components/practice/QuestionNavigator.tsx",
-        "frontend/src/pages/PracticePage.tsx",
-        "frontend/src/types/practice.ts"
+        "frontend/src/components/contributor/PdfImportPreviewList.tsx",
+        "frontend/src/pages/ContributorPage.tsx",
+        "frontend/src/utils/pdf/pdfTextReconstruction.ts",
+        "frontend/src/utils/pdf/pdfToQuestions.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -15,7 +16,8 @@
         "shadcn-ui@1.0.0",
         "build-template-react@1.0.0",
         "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
+        "github-export-icp-cli@1.0.0",
+        "blob-storage@4.0.0"
       ],
       "testIds": [
         "REQ-1"
@@ -23,11 +25,13 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-implement-an-end-of-session-results-review-experience-that-displays-the-student-s-saved-answers-for-the-completed-session-question-by-question-using-authoritative-data-from-the-backend-test-result-created-on-submission",
-      "featureTitle": "Implement an end-of-session results/review experience that displays the student’s saved answers for the completed session (question-by-question) using authoritative data from the backend test result created on submission.",
+      "featureId": "feature-update-pdf-import-to-include-figures-diagrams-from-the-pdf-in-the-imported-questions-so-that-questions-display-figures-as-part-of-the-question-content-as-closely-as-possible-to-the-original-pdf-figures-must-be-visible-in-the-import-preview-and-after-saving-when-viewing-practicing-the-question",
+      "featureTitle": "Update PDF import to include figures/diagrams from the PDF in the imported questions so that questions display figures as part of the question content as closely as possible to the original PDF; figures must be visible in the import preview and after saving when viewing/practicing the question.",
       "files": [
-        "frontend/src/hooks/useQueries.ts",
-        "frontend/src/pages/ResultsPage.tsx"
+        "frontend/src/components/contributor/PdfImportPreviewList.tsx",
+        "frontend/src/pages/ContributorPage.tsx",
+        "frontend/src/utils/pdf/pdfToQuestions.ts",
+        "frontend/src/utils/pdf/pdfjsClient.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -35,7 +39,8 @@
         "shadcn-ui@1.0.0",
         "build-template-react@1.0.0",
         "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
+        "github-export-icp-cli@1.0.0",
+        "blob-storage@4.0.0"
       ],
       "testIds": [
         "REQ-2"
@@ -43,11 +48,11 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-add-subject-wise-ranking-and-overall-ranking-of-all-students-overall-ranking-should-continue-to-work-as-a-global-leaderboard-and-subject-wise-ranking-should-rank-students-using-subject-specific-performance-aggregated-from-submitted-test-results",
-      "featureTitle": "Add subject-wise ranking and overall ranking of all students. Overall ranking should continue to work as a global leaderboard, and subject-wise ranking should rank students using subject-specific performance aggregated from submitted test results.",
+      "featureId": "feature-add-a-delete-option-for-questions-in-the-question-management-ui-wired-to-the-existing-backend-deletequestion-function-with-a-confirmation-step-and-automatic-refresh-of-question-lists-after-deletion-only-admins-should-be-allowed-to-perform-deletion-and-non-admins-must-not-be-shown-a-working-delete-control",
+      "featureTitle": "Add a delete option for questions in the question management UI, wired to the existing backend deleteQuestion function, with a confirmation step and automatic refresh of question lists after deletion; only admins should be allowed to perform deletion and non-admins must not be shown a working delete control.",
       "files": [
         "frontend/src/hooks/useQueries.ts",
-        "frontend/src/pages/RankingsPage.tsx"
+        "frontend/src/pages/ContributorPage.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -55,7 +60,8 @@
         "shadcn-ui@1.0.0",
         "build-template-react@1.0.0",
         "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
+        "github-export-icp-cli@1.0.0",
+        "blob-storage@4.0.0"
       ],
       "testIds": [
         "REQ-3"

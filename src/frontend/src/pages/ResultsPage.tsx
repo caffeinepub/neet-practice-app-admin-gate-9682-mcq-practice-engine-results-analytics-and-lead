@@ -160,7 +160,7 @@ export default function ResultsPage() {
                   <div className="flex items-start gap-3 mb-3">
                     <div
                       className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
+                        'w-8 h-8 rounded-full flex items-center justify-center shrink-0',
                         attempt.isCorrect ? 'bg-green-500' : 'bg-red-500'
                       )}
                     >
@@ -173,7 +173,7 @@ export default function ResultsPage() {
                           {attempt.isCorrect ? 'Correct' : 'Incorrect'}
                         </Badge>
                       </div>
-                      <p className="text-sm mb-3">{question.questionText}</p>
+                      <p className="text-sm mb-3 whitespace-pre-wrap break-words">{question.questionText}</p>
 
                       <div className="space-y-2 text-sm">
                         <div>
@@ -193,7 +193,7 @@ export default function ResultsPage() {
                         {question.explanation && (
                           <div className="mt-2 pt-2 border-t border-border/50">
                             <span className="font-semibold text-muted-foreground">Explanation: </span>
-                            <span className="text-muted-foreground">{question.explanation}</span>
+                            <span className="text-muted-foreground whitespace-pre-wrap break-words">{question.explanation}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-1 text-muted-foreground mt-2">
