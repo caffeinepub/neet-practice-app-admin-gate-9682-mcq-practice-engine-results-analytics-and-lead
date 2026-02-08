@@ -1,6 +1,5 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useHasContributorAccess } from '../hooks/useAuthz';
 import { useActor } from '../hooks/useActor';
 import MobilePage from '../components/layout/MobilePage';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +10,6 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { identity } = useInternetIdentity();
   const { actor, isFetching: actorFetching } = useActor();
-  const { data: hasContributorAccess, isLoading: contributorLoading } = useHasContributorAccess();
 
   const isAuthenticated = !!identity;
   const isActorReady = !!actor && !actorFetching;
@@ -76,12 +74,7 @@ export default function HomePage() {
                   <UserPlus className="w-6 h-6 text-warning" />
                 )}
               </div>
-              <CardTitle className="flex items-center gap-2">
-                Contributor Mode
-                {isAuthenticated && hasContributorAccess && (
-                  <span className="text-xs bg-success/20 text-success px-2 py-0.5 rounded-full">Active</span>
-                )}
-              </CardTitle>
+              <CardTitle>Contributor Mode</CardTitle>
               <CardDescription>
                 {!isActorReady
                   ? 'Connecting to the canister...'

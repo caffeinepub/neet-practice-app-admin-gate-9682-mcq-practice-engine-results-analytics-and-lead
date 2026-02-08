@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useHasContributorAccess } from '../hooks/useAuthz';
 import { useActor } from '../hooks/useActor';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import {
@@ -42,7 +41,6 @@ export default function ContributorPage() {
   const queryClient = useQueryClient();
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
-  const { data: hasAccess, isLoading: accessLoading } = useHasContributorAccess();
   
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
@@ -51,8 +49,12 @@ export default function ContributorPage() {
   const [connectionTimedOut, setConnectionTimedOut] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
 
-  // Only fetch chapters when user has contributor access
-  const { data: chapters, isLoading: chaptersLoading } = useListChapters(hasAccess);
+  // Contributor access state - will be determined by attempting to fetch data
+  const [hasAccess, setHasAccess] = useState(false);
+  const [accessChecked, setAccessChecked] = useState(false);
+
+  // Fetch chapters to check contributor access
+  const { data: chapters, isLoading: chaptersLoading, error: chaptersError } = useListChapters(true);
   const { data: questions, isLoading: questionsLoading } = useGetQuestionsForChapter(
     selectedChapterId ? BigInt(selectedChapterId) : null
   );
@@ -81,6 +83,7 @@ export default function ContributorPage() {
     correctOption: 'A',
     explanation: '',
     category: Category.level1,
+    year: '',
   });
 
   const [chapterForm, setChapterForm] = useState({
@@ -97,6 +100,20 @@ export default function ContributorPage() {
 
   const isActorReady = !!actor && !actorFetching;
   const isLoggedIn = !!identity;
+
+  // Check contributor access based on chapters query result
+  useEffect(() => {
+    if (isLoggedIn && !chaptersLoading && !accessChecked) {
+      if (chaptersError) {
+        // If there's an error, user likely doesn't have access
+        setHasAccess(false);
+      } else if (chapters !== undefined) {
+        // If chapters loaded successfully, user has access
+        setHasAccess(true);
+      }
+      setAccessChecked(true);
+    }
+  }, [isLoggedIn, chaptersLoading, chaptersError, chapters, accessChecked]);
 
   // Timeout effect: start timer when actor is not ready
   useEffect(() => {
@@ -146,8 +163,8 @@ export default function ContributorPage() {
     );
   }
 
-  // Show loading state while actor is initializing
-  if (!isActorReady || accessLoading) {
+  // Show loading state while actor is initializing or checking access
+  if (!isActorReady || (isLoggedIn && !accessChecked)) {
     return (
       <MobilePage>
         <div className="flex flex-col items-center justify-center py-12 space-y-4">
@@ -215,11 +232,23 @@ export default function ContributorPage() {
       toast.error('Please select a subject and chapter');
       return;
     }
+
+    const yearValue = questionForm.year.trim();
+    const year = yearValue ? BigInt(yearValue) : null;
+
     try {
       await createQuestion.mutateAsync({
         subject: selectedSubject,
         chapterId: BigInt(selectedChapterId),
-        ...questionForm,
+        questionText: questionForm.questionText,
+        optionA: questionForm.optionA,
+        optionB: questionForm.optionB,
+        optionC: questionForm.optionC,
+        optionD: questionForm.optionD,
+        correctOption: questionForm.correctOption,
+        explanation: questionForm.explanation,
+        category: questionForm.category,
+        year,
       });
       toast.success('Question created successfully');
       setQuestionDialogOpen(false);
@@ -232,10 +261,22 @@ export default function ContributorPage() {
   const handleUpdateQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingQuestion) return;
+
+    const yearValue = questionForm.year.trim();
+    const year = yearValue ? BigInt(yearValue) : null;
+
     try {
       await updateQuestion.mutateAsync({
         id: editingQuestion.id,
-        ...questionForm,
+        questionText: questionForm.questionText,
+        optionA: questionForm.optionA,
+        optionB: questionForm.optionB,
+        optionC: questionForm.optionC,
+        optionD: questionForm.optionD,
+        correctOption: questionForm.correctOption,
+        explanation: questionForm.explanation,
+        category: questionForm.category,
+        year,
       });
       toast.success('Question updated successfully');
       setQuestionDialogOpen(false);
@@ -315,6 +356,7 @@ export default function ContributorPage() {
       correctOption: 'A',
       explanation: '',
       category: Category.level1,
+      year: '',
     });
   };
 
@@ -345,6 +387,7 @@ export default function ContributorPage() {
       correctOption: question.correctOption,
       explanation: question.explanation,
       category: question.category,
+      year: question.year ? question.year.toString() : '',
     });
     setQuestionDialogOpen(true);
   };
@@ -517,8 +560,7 @@ export default function ContributorPage() {
                             setCreateChapterError(null);
                           }}
                           required
-                          rows={3}
-                          placeholder="Brief description of the chapter content"
+                          placeholder="Brief description of the chapter"
                         />
                       </div>
                       <div className="space-y-2">
@@ -533,22 +575,22 @@ export default function ContributorPage() {
                             setCreateChapterError(null);
                           }}
                           required
-                          placeholder="e.g., 1, 2, 3..."
+                          placeholder="e.g., 1"
                         />
                         <p className="text-xs text-muted-foreground">
-                          Chapters are displayed in sequence order (lowest first)
+                          Determines the order in which chapters appear
                         </p>
                       </div>
-                      <div className="flex justify-end gap-2">
+                      <div className="flex gap-2">
                         <Button
                           type="button"
                           variant="outline"
                           onClick={() => setCreateChapterDialogOpen(false)}
-                          disabled={createChapter.isPending}
+                          className="flex-1"
                         >
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={createChapter.isPending}>
+                        <Button type="submit" disabled={createChapter.isPending} className="flex-1">
                           {createChapter.isPending ? (
                             <>
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -574,16 +616,20 @@ export default function ContributorPage() {
                   {filteredChapters.map((chapter) => (
                     <div
                       key={chapter.id.toString()}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                      className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                     >
                       <div className="flex-1">
-                        <p className="font-medium">{chapter.title}</p>
-                        <p className="text-sm text-muted-foreground line-clamp-1">{chapter.description}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Sequence: {chapter.sequence.toString()}</p>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            #{chapter.sequence.toString()}
+                          </Badge>
+                          <p className="font-medium">{chapter.title}</p>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">{chapter.description}</p>
                       </div>
                       <Button
                         variant="ghost"
-                        size="sm"
+                        size="icon"
                         onClick={() => openEditChapterDialog(chapter)}
                       >
                         <Edit className="w-4 h-4" />
@@ -592,87 +638,24 @@ export default function ContributorPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  No chapters yet. Create one to get started.
-                </p>
+                <div className="text-center py-8 text-muted-foreground">
+                  No chapters available. Create one to get started!
+                </div>
               )}
             </CardContent>
           </Card>
         )}
 
-        {/* Chapter Edit Dialog */}
-        <Dialog open={chapterDialogOpen} onOpenChange={setChapterDialogOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Edit Chapter</DialogTitle>
-              <DialogDescription>Update chapter details</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleUpdateChapter} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="chapterTitle">Chapter Title *</Label>
-                <Input
-                  id="chapterTitle"
-                  value={chapterForm.title}
-                  onChange={(e) => setChapterForm({ ...chapterForm, title: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="chapterDescription">Description *</Label>
-                <Textarea
-                  id="chapterDescription"
-                  value={chapterForm.description}
-                  onChange={(e) => setChapterForm({ ...chapterForm, description: e.target.value })}
-                  required
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="chapterSequence">Sequence Number *</Label>
-                <Input
-                  id="chapterSequence"
-                  type="number"
-                  min="0"
-                  value={chapterForm.sequence}
-                  onChange={(e) => setChapterForm({ ...chapterForm, sequence: e.target.value })}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Chapters are displayed in sequence order (lowest first)
-                </p>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setChapterDialogOpen(false)}
-                  disabled={updateChapter.isPending}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={updateChapter.isPending}>
-                  {updateChapter.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Updating...
-                    </>
-                  ) : (
-                    'Update Chapter'
-                  )}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Questions Section */}
+        {/* Questions List */}
         {selectedChapterId && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Questions</CardTitle>
-                  <CardDescription>Manage questions for this chapter</CardDescription>
+                  <CardDescription>
+                    {questions?.length || 0} question(s) in this chapter
+                  </CardDescription>
                 </div>
                 <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
                   <DialogTrigger asChild>
@@ -683,30 +666,42 @@ export default function ContributorPage() {
                   </DialogTrigger>
                   <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>{editingQuestion ? 'Edit Question' : 'Create New Question'}</DialogTitle>
+                      <DialogTitle>
+                        {editingQuestion ? 'Edit Question' : 'Create New Question'}
+                      </DialogTitle>
                       <DialogDescription>
-                        {editingQuestion ? 'Update the question details' : 'Add a new question to this chapter'}
+                        {editingQuestion
+                          ? 'Update the question details below'
+                          : 'Fill in the details to create a new question'}
                       </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={editingQuestion ? handleUpdateQuestion : handleCreateQuestion} className="space-y-4">
+                    <form
+                      onSubmit={editingQuestion ? handleUpdateQuestion : handleCreateQuestion}
+                      className="space-y-4"
+                    >
                       <div className="space-y-2">
                         <Label htmlFor="questionText">Question Text *</Label>
                         <Textarea
                           id="questionText"
                           value={questionForm.questionText}
-                          onChange={(e) => setQuestionForm({ ...questionForm, questionText: e.target.value })}
+                          onChange={(e) =>
+                            setQuestionForm({ ...questionForm, questionText: e.target.value })
+                          }
                           required
                           rows={3}
                           placeholder="Enter the question"
                         />
                       </div>
+
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="optionA">Option A *</Label>
                           <Input
                             id="optionA"
                             value={questionForm.optionA}
-                            onChange={(e) => setQuestionForm({ ...questionForm, optionA: e.target.value })}
+                            onChange={(e) =>
+                              setQuestionForm({ ...questionForm, optionA: e.target.value })
+                            }
                             required
                           />
                         </div>
@@ -715,7 +710,9 @@ export default function ContributorPage() {
                           <Input
                             id="optionB"
                             value={questionForm.optionB}
-                            onChange={(e) => setQuestionForm({ ...questionForm, optionB: e.target.value })}
+                            onChange={(e) =>
+                              setQuestionForm({ ...questionForm, optionB: e.target.value })
+                            }
                             required
                           />
                         </div>
@@ -724,7 +721,9 @@ export default function ContributorPage() {
                           <Input
                             id="optionC"
                             value={questionForm.optionC}
-                            onChange={(e) => setQuestionForm({ ...questionForm, optionC: e.target.value })}
+                            onChange={(e) =>
+                              setQuestionForm({ ...questionForm, optionC: e.target.value })
+                            }
                             required
                           />
                         </div>
@@ -733,16 +732,21 @@ export default function ContributorPage() {
                           <Input
                             id="optionD"
                             value={questionForm.optionD}
-                            onChange={(e) => setQuestionForm({ ...questionForm, optionD: e.target.value })}
+                            onChange={(e) =>
+                              setQuestionForm({ ...questionForm, optionD: e.target.value })
+                            }
                             required
                           />
                         </div>
                       </div>
+
                       <div className="space-y-2">
                         <Label htmlFor="correctOption">Correct Option *</Label>
                         <Select
                           value={questionForm.correctOption}
-                          onValueChange={(value) => setQuestionForm({ ...questionForm, correctOption: value })}
+                          onValueChange={(value) =>
+                            setQuestionForm({ ...questionForm, correctOption: value })
+                          }
                         >
                           <SelectTrigger id="correctOption">
                             <SelectValue />
@@ -755,43 +759,85 @@ export default function ContributorPage() {
                           </SelectContent>
                         </Select>
                       </div>
+
                       <div className="space-y-2">
                         <Label htmlFor="category">Category *</Label>
                         <Select
                           value={questionForm.category}
-                          onValueChange={(value) => setQuestionForm({ ...questionForm, category: value as Category })}
+                          onValueChange={(value) =>
+                            setQuestionForm({ ...questionForm, category: value as Category })
+                          }
                         >
                           <SelectTrigger id="category">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value={Category.level1}>{categoryLabels[Category.level1]}</SelectItem>
-                            <SelectItem value={Category.neetPYQ}>{categoryLabels[Category.neetPYQ]}</SelectItem>
-                            <SelectItem value={Category.jeePYQ}>{categoryLabels[Category.jeePYQ]}</SelectItem>
+                            <SelectItem value={Category.level1}>
+                              {categoryLabels[Category.level1]}
+                            </SelectItem>
+                            <SelectItem value={Category.neetPYQ}>
+                              {categoryLabels[Category.neetPYQ]}
+                            </SelectItem>
+                            <SelectItem value={Category.jeePYQ}>
+                              {categoryLabels[Category.jeePYQ]}
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="year">
+                          Year (Optional - for PYQ questions)
+                          <HelpCircle className="w-3 h-3 inline ml-1 text-muted-foreground" />
+                        </Label>
+                        <Input
+                          id="year"
+                          type="number"
+                          min="2000"
+                          max="2030"
+                          value={questionForm.year}
+                          onChange={(e) =>
+                            setQuestionForm({ ...questionForm, year: e.target.value })
+                          }
+                          placeholder="e.g., 2024"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Only required for NEET PYQ and JEE PYQ categories
+                        </p>
+                      </div>
+
                       <div className="space-y-2">
                         <Label htmlFor="explanation">Explanation *</Label>
                         <Textarea
                           id="explanation"
                           value={questionForm.explanation}
-                          onChange={(e) => setQuestionForm({ ...questionForm, explanation: e.target.value })}
+                          onChange={(e) =>
+                            setQuestionForm({ ...questionForm, explanation: e.target.value })
+                          }
                           required
                           rows={3}
                           placeholder="Explain why the correct answer is correct"
                         />
                       </div>
-                      <div className="flex justify-end gap-2">
+
+                      <div className="flex gap-2">
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => setQuestionDialogOpen(false)}
-                          disabled={createQuestion.isPending || updateQuestion.isPending}
+                          onClick={() => {
+                            setQuestionDialogOpen(false);
+                            setEditingQuestion(null);
+                            resetQuestionForm();
+                          }}
+                          className="flex-1"
                         >
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={createQuestion.isPending || updateQuestion.isPending}>
+                        <Button
+                          type="submit"
+                          disabled={createQuestion.isPending || updateQuestion.isPending}
+                          className="flex-1"
+                        >
                           {createQuestion.isPending || updateQuestion.isPending ? (
                             <>
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -819,41 +865,39 @@ export default function ContributorPage() {
                   {questions.map((question, index) => (
                     <div
                       key={question.id.toString()}
-                      className="p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                      className="p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 space-y-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-muted-foreground">Q{index + 1}</span>
-                            <Badge variant="outline">{categoryLabels[question.category]}</Badge>
+                            <Badge variant="outline" className="text-xs">
+                              Q{index + 1}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              {categoryLabels[question.category]}
+                            </Badge>
+                            {question.year && (
+                              <Badge variant="secondary" className="text-xs">
+                                {question.year.toString()}
+                              </Badge>
+                            )}
                           </div>
                           <p className="font-medium">{question.questionText}</p>
                           <div className="grid grid-cols-2 gap-2 text-sm">
-                            <p>
-                              <span className={question.correctOption === 'A' ? 'font-bold text-green-600' : ''}>
-                                A: {question.optionA}
-                              </span>
-                            </p>
-                            <p>
-                              <span className={question.correctOption === 'B' ? 'font-bold text-green-600' : ''}>
-                                B: {question.optionB}
-                              </span>
-                            </p>
-                            <p>
-                              <span className={question.correctOption === 'C' ? 'font-bold text-green-600' : ''}>
-                                C: {question.optionC}
-                              </span>
-                            </p>
-                            <p>
-                              <span className={question.correctOption === 'D' ? 'font-bold text-green-600' : ''}>
-                                D: {question.optionD}
-                              </span>
-                            </p>
+                            <p className="text-muted-foreground">A: {question.optionA}</p>
+                            <p className="text-muted-foreground">B: {question.optionB}</p>
+                            <p className="text-muted-foreground">C: {question.optionC}</p>
+                            <p className="text-muted-foreground">D: {question.optionD}</p>
                           </div>
+                          <p className="text-sm">
+                            <span className="font-semibold text-success">
+                              Correct: {question.correctOption}
+                            </span>
+                          </p>
                         </div>
                         <Button
                           variant="ghost"
-                          size="sm"
+                          size="icon"
                           onClick={() => openEditDialog(question)}
                         >
                           <Edit className="w-4 h-4" />
@@ -863,13 +907,84 @@ export default function ContributorPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  No questions yet. Add one to get started.
-                </p>
+                <div className="text-center py-8 text-muted-foreground">
+                  No questions yet. Add your first question!
+                </div>
               )}
             </CardContent>
           </Card>
         )}
+
+        {/* Chapter Edit Dialog */}
+        <Dialog open={chapterDialogOpen} onOpenChange={setChapterDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Chapter</DialogTitle>
+              <DialogDescription>Update the chapter details below</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleUpdateChapter} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="chapterTitle">Chapter Title *</Label>
+                <Input
+                  id="chapterTitle"
+                  value={chapterForm.title}
+                  onChange={(e) =>
+                    setChapterForm({ ...chapterForm, title: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="chapterDescription">Description *</Label>
+                <Textarea
+                  id="chapterDescription"
+                  value={chapterForm.description}
+                  onChange={(e) =>
+                    setChapterForm({ ...chapterForm, description: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="chapterSequence">Sequence Number *</Label>
+                <Input
+                  id="chapterSequence"
+                  type="number"
+                  min="0"
+                  value={chapterForm.sequence}
+                  onChange={(e) =>
+                    setChapterForm({ ...chapterForm, sequence: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setChapterDialogOpen(false);
+                    setEditingChapter(null);
+                    resetChapterForm();
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateChapter.isPending} className="flex-1">
+                  {updateChapter.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    'Update Chapter'
+                  )}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </MobilePage>
   );

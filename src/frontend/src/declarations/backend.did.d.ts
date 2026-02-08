@@ -55,6 +55,25 @@ export interface QuestionAttempt {
 export type Subject = { 'biology' : null } |
   { 'chemistry' : null } |
   { 'physics' : null };
+export interface SubjectUserStats {
+  'averageTimePerQuestion' : bigint,
+  'subject' : Subject,
+  'displayName' : string,
+  'totalQuestionsAnswered' : bigint,
+  'joinedAt' : bigint,
+  'user' : Principal,
+  'correctAnswers' : bigint,
+  'accuracy' : number,
+}
+export interface TestResult {
+  'id' : bigint,
+  'subject' : Subject,
+  'createdAt' : bigint,
+  'user' : Principal,
+  'attempts' : Array<QuestionAttempt>,
+  'chapterId' : bigint,
+  'score' : bigint,
+}
 export interface UserProfile { 'name' : string }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
@@ -103,10 +122,15 @@ export interface _SERVICE {
   >,
   'getQuestionsForChapter' : ActorMethod<[bigint], Array<Question>>,
   'getQuestionsForYear' : ActorMethod<[bigint, Category], Array<Question>>,
+  'getSessionReviewByTestResultId' : ActorMethod<
+    [bigint],
+    [TestResult, Array<Question>]
+  >,
+  'getSubjectLeaderboard' : ActorMethod<[Subject], Array<SubjectUserStats>>,
+  'getSubjectStats' : ActorMethod<[Subject], Array<SubjectUserStats>>,
   'getTotalAuthenticatedUsers' : ActorMethod<[], bigint>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'getUserStats' : ActorMethod<[Principal], UserStats>,
-  'hasContributorAccess' : ActorMethod<[], boolean>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'listChapters' : ActorMethod<[], Array<Chapter>>,
   'listQuestions' : ActorMethod<[], Array<Question>>,

@@ -1,85 +1,73 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Practice UX upgrades: clickable navigator, reliable resume, and PYQ year selection",
+  "title": "Persist practice answers across navigation; add results review from backend; add subject-wise and overall rankings switcher",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Add a visible clickable question-number navigator on the Practice page to jump directly to any question with clear active-state styling and consistent behavior during feedback.",
+      "summary": "Persist per-question selected answers across next/previous and jump navigation, and keep a complete in-session attempts set for final submission/review.",
       "acceptanceCriteria": [
-        "On the practice screen, a question-number navigator is visible (e.g., 1..N) for the current (subject, chapter, category).",
-        "Clicking a question number immediately navigates to that question (updates the current question/slide).",
-        "The currently active question number is visually highlighted.",
-        "Question navigation is disabled or clearly indicated as limited while answer feedback is shown (to avoid accidental navigation), or navigation clears feedback state in a consistent way."
+        "After answering Question N and moving to Question N+1, returning to Question N shows the same selected option as previously chosen.",
+        "The list of attempts shown at the end of the session includes answers for all questions that were answered during the session (not only the last question).",
+        "Answer persistence works even if the student navigates using the Jump-to-Question navigator before finishing the session."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/practice/QuestionNavigator.tsx",
-          "operation": "create",
-          "description": "Create a reusable QuestionNavigator component that renders a responsive list/grid of question numbers (1..N), highlights the active index, and supports disabled/limited navigation while feedback is shown. Use shadcn-ui primitives (e.g., Button) for consistent styling; verify the component's usage instructions before implementing."
-        },
-        {
           "path": "frontend/src/pages/PracticePage.tsx",
           "operation": "modify",
-          "description": "Replace/augment the current \"Jump to\" number input with the new clickable QuestionNavigator for the currently filtered question set. Wire clicks to setCurrentIndex and apply a consistent policy for feedback state (e.g., disable navigator while showFeedback is true, or clear feedback state on navigation). Use shadcn-ui components where appropriate; verify the component's usage instructions before implementing."
+          "description": "Refactor practice session state to store answers/attempts keyed per question (e.g., by questionId or index) so selectedOption is restored when returning to a question, including via QuestionNavigator. Ensure that submitting an answer records/updates the attempt for that specific question (not only appending sequentially), and that final submission builds the attempts array from all saved attempts in question order so end-of-session includes all answered questions."
+        },
+        {
+          "path": "frontend/src/components/practice/QuestionNavigator.tsx",
+          "operation": "modify",
+          "description": "Extend the navigator to optionally accept and render an “answered” indicator/state (e.g., styling) for questions that have a saved attempt, while keeping current selection highlighting and navigation behavior intact."
+        },
+        {
+          "path": "frontend/src/types/practice.ts",
+          "operation": "modify",
+          "description": "Align/extend practice session types to support persisted per-question answers/attempts (e.g., map keyed by questionId/index) used by PracticePage for answer retention and complete attempt collection."
         }
       ]
     },
     {
       "id": "REQ-2",
-      "summary": "Make practice resume reliably restore the last viewed question for the same (subject, chapter, category, and optional year), using localStorage for anonymous users and backend progress for authenticated users; clear stored progress after test submission.",
+      "summary": "Replace placeholder results screen with an authoritative end-of-session review pulled from the backend test result, including score breakdown and per-question review.",
       "acceptanceCriteria": [
-        "Anonymous users: leaving the app and returning to the same practice route resumes at the last seen question index using localStorage persistence.",
-        "Authenticated users: leaving the app and returning to the same practice route resumes at the last seen question using backend practice progress.",
-        "After completing and submitting a test, stored progress for that (subject, chapter, category) is cleared so the next attempt starts from question 1."
+        "Backend exposes a query to retrieve a submitted test result by resultId with authorization that prevents other users from reading someone else’s result.",
+        "Results page displays a real score breakdown derived from the stored attempts (correct/incorrect counts, accuracy, and per-question review showing chosen option vs correct option).",
+        "Results page renders without placeholder text about missing backend support."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/utils/practiceProgressStorage.ts",
-          "operation": "modify",
-          "description": "Extend localStorage progress utilities to support a stable composite key that includes (subject, chapterId, category, optional year) so PYQ year-based sessions do not overwrite each other. Keep all user-facing text in English."
-        },
-        {
           "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Add a React Query hook for authenticated resume that uses the available backend capability getOrCreatePracticeProgress(key, totalQuestions) (and ensure query keys include optional year when present). This allows reliable progress initialization/resume for authenticated users."
+          "description": "Add a React Query hook to retrieve a submitted session review by testResultId using the existing backend capability (getSessionReviewByTestResultId). Include appropriate caching keys and error handling for authorization failures. Verify the authorization component's usage instructions before implementing."
         },
         {
-          "path": "frontend/src/pages/PracticePage.tsx",
+          "path": "frontend/src/pages/ResultsPage.tsx",
           "operation": "modify",
-          "description": "Fix authenticated resume and saving logic to align with the typed backend interface (use lastQuestionIndex instead of lastQuestionId). For authenticated users, load progress via the new getOrCreatePracticeProgress-based hook and restore currentIndex safely within bounds; persist currentIndex changes to backend. For anonymous users, persist/restore via localStorage using the composite key (including optional year). Ensure progress is cleared after submit so next attempt starts at question 1 (clear localStorage; for authenticated users, save a cleared progress state). Keep user-facing text in English and handle any backend authorization/trap errors gracefully."
+          "description": "Implement results fetching by resultId via the new hook and render: overall score/accuracy, correct vs incorrect counts, average time (derived from attempts), and a per-question review list showing question text, chosen option, correct option, and correctness. Remove placeholder messaging. Add a minimal auth-aware guard: if the user is not authenticated, prompt them to log in before attempting to load personal results; handle unauthorized errors gracefully. Verify the authorization component's usage instructions before implementing."
         }
       ]
     },
     {
       "id": "REQ-3",
-      "summary": "Add year-wise PYQ practice selection (2025–2000 when present) by prompting for year selection before starting NEET PYQ/JEE PYQ practice and filtering questions by the selected year.",
+      "summary": "Add UI to switch between Overall leaderboard and subject-wise leaderboards (physics/chemistry/biology) and render a ranked table for the selected scope.",
       "acceptanceCriteria": [
-        "Backend stores a year value on PYQ questions (NEET PYQ and JEE PYQ), and existing questions remain readable after the change (defaulting the year field appropriately).",
-        "Frontend provides a year selection UI when the user selects NEET PYQ or JEE PYQ for a chapter (only if multiple years exist).",
-        "Selecting a year starts practice showing only PYQ questions for that selected year (within the chosen chapter and PYQ category).",
-        "The available years shown for selection are derived from actual question data and include years in the range 2025..2000 when present."
+        "Backend provides a query for a subject-specific leaderboard (for physics, chemistry, biology) that returns a sorted ranking comparable to the overall leaderboard.",
+        "Rankings UI allows switching between Overall and a selected Subject leaderboard, and displays a ranked table of students for the chosen scope.",
+        "Overall leaderboard remains available and unchanged in meaning (global)."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/practice/YearSelectDialog.tsx",
-          "operation": "create",
-          "description": "Create a YearSelectDialog component that displays available years (derived from question data) in descending order and returns the selected year. Use shadcn-ui Dialog/Button/ScrollArea (as available) for accessible UI; verify the component's usage instructions before implementing."
-        },
-        {
-          "path": "frontend/src/pages/ChapterCategorySelectPage.tsx",
-          "operation": "modify",
-          "description": "When user selects NEET PYQ or JEE PYQ, derive unique available years for that category from chapter question data. If multiple years exist, open YearSelectDialog; if exactly one year exists, auto-start; if none, keep disabled. Navigate to Practice with the selected year stored in route search params (preferred) so no new top-level route is required. Use shadcn-ui components for consistent UI; verify the component's usage instructions before implementing."
-        },
-        {
-          "path": "frontend/src/pages/PracticePage.tsx",
-          "operation": "modify",
-          "description": "Read the selected PYQ year from router search params and: (1) include it in the PracticeProgressKey for authenticated progress, (2) include it in the anonymous localStorage key, and (3) filter the loaded chapter questions to the selected year for PYQ categories. If a PYQ category is entered without a required year while multiple years exist, redirect back to year selection (or show an in-page prompt) using English user-facing text."
-        },
-        {
           "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Ensure practice-progress query/mutation cache keys incorporate the optional year field so year-specific PYQ sessions do not collide for authenticated users."
+          "description": "Add a React Query hook for subject leaderboard retrieval (getSubjectLeaderboard) parameterized by subject and with stable caching keys. Verify the authorization component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/pages/RankingsPage.tsx",
+          "operation": "modify",
+          "description": "Add a scope switcher (Overall / Physics / Chemistry / Biology) and conditionally fetch/render either the existing overall leaderboard or the selected subject leaderboard. Keep overall leaderboard meaning unchanged. Update the table columns as needed for subject stats (e.g., questions answered, correct, accuracy), while preserving ranked ordering and current-user highlighting behavior where possible. Verify the authorization component's usage instructions before implementing."
         }
       ]
     }

@@ -15,3 +15,10 @@ export interface QuestionAttemptLocal {
   isCorrect: boolean;
   timeTaken: bigint;
 }
+
+// Per-question answer state for persistence
+export interface PerQuestionAnswer {
+  selectedOption: string;
+  timeTaken: bigint;
+  isCorrect: boolean;
+}

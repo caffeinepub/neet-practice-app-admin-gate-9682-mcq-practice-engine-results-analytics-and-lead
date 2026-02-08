@@ -1,108 +1,75 @@
 {
   "kind": "build_request",
-  "title": "Add clickable question navigator, resume practice position, and seed NEET syllabus chapters + year-wise PYQ (2025–2000)",
+  "title": "Persist answers across question navigation and add subject-wise + overall student rankings",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Update the Practice page so students can jump to any question by clicking on a visible list/grid of question numbers (a question navigator), instead of only typing a number.",
+      "text": "Update the practice question flow so that when a student submits an answer and moves (slides) to the next question, the previously selected answer is retained for that question and is available at the end of the session for review (including when navigating back to previous questions using the question navigator).",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-6"
         ],
         "quotes": [
-          "When some try to attemp question he or she can skip to any question by clicking on question number"
+          "All feature are good but when some one click answer and it shows answer and it slide to another question keep old answer save at end at one can see subject wise ranking of all students and overall ranking"
         ]
       },
       "acceptanceCriteria": [
-        "On the practice screen, a question-number navigator is visible (e.g., 1..N) for the current (subject, chapter, category).",
-        "Clicking a question number immediately navigates to that question (updates the current question/slide).",
-        "The currently active question number is visually highlighted.",
-        "Question navigation is disabled or clearly indicated as limited while answer feedback is shown (to avoid accidental navigation), or navigation clears feedback state in a consistent way."
+        "After answering Question N and moving to Question N+1, returning to Question N shows the same selected option as previously chosen.",
+        "The list of attempts shown at the end of the session includes answers for all questions that were answered during the session (not only the last question).",
+        "Answer persistence works even if the student navigates using the Jump-to-Question navigator before finishing the session."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Ensure practice resume behavior reliably restores the student to the same question/slide they last viewed when they exit and later return to the same (subject, chapter, category), for both anonymous and authenticated users.",
+      "text": "Implement an end-of-session results/review experience that displays the student’s saved answers for the completed session (question-by-question) using authoritative data from the backend test result created on submission.",
       "target": "both",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-6"
         ],
         "quotes": [
-          "when student exit and after some time he tries to attain question he should be at same slide of questions where he left"
+          "keep old answer save at end"
         ]
       },
       "acceptanceCriteria": [
-        "Anonymous users: leaving the app and returning to the same practice route resumes at the last seen question index using localStorage persistence.",
-        "Authenticated users: leaving the app and returning to the same practice route resumes at the last seen question using backend practice progress.",
-        "After completing and submitting a test, stored progress for that (subject, chapter, category) is cleared so the next attempt starts from question 1."
+        "Backend exposes a query to retrieve a submitted test result by resultId with authorization that prevents other users from reading someone else’s result.",
+        "Results page displays a real score breakdown derived from the stored attempts (correct/incorrect counts, accuracy, and per-question review showing chosen option vs correct option).",
+        "Results page renders without placeholder text about missing backend support."
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Add support for year-wise PYQ organization for NEET PYQ and JEE PYQ questions from year 2025 down to 2000, including backend data modeling and frontend year selection before starting PYQ practice.",
+      "text": "Add subject-wise ranking and overall ranking of all students. Overall ranking should continue to work as a global leaderboard, and subject-wise ranking should rank students using subject-specific performance aggregated from submitted test results.",
       "target": "both",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-6"
         ],
         "quotes": [
-          "in neet jee pyq section put pyq by your own ... and question of neet jee should be year wise from 2025 to 2000"
+          "subject wise ranking of all students and overall ranking"
         ]
       },
       "acceptanceCriteria": [
-        "Backend stores a year value on PYQ questions (NEET PYQ and JEE PYQ), and existing questions remain readable after the change (defaulting the year field appropriately).",
-        "Frontend provides a year selection UI when the user selects NEET PYQ or JEE PYQ for a chapter (only if multiple years exist).",
-        "Selecting a year starts practice showing only PYQ questions for that selected year (within the chosen chapter and PYQ category).",
-        "The available years shown for selection are derived from actual question data and include years in the range 2025..2000 when present."
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "text": "Populate the app with NEET-syllabus-based chapters for Physics, Chemistry, and Biology, and populate the NEET/JEE PYQ banks with year-tagged questions for years 2025–2000.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-1"
-        ],
-        "quotes": [
-          "And add chapters in physcs chemistry and biology which in neet sylbuss by your own",
-          "and in neet jee pyq section put pyq by your own ... year wise from 2025 to 2000"
-        ]
-      },
-      "acceptanceCriteria": [
-        "The chapter list for each subject (Physics/Chemistry/Biology) is no longer empty on a fresh deployment and includes a reasonable NEET syllabus-aligned set of chapters with sequence values for deterministic ordering.",
-        "The system contains PYQ questions tagged with years covering 2025 down to 2000 for NEET PYQ and JEE PYQ categories (as provided by seeded data).",
-        "Seed logic is idempotent (running it multiple times does not create duplicate chapters/questions).",
-        "All seeded questions render correctly in practice mode (valid options A–D, correct option, and English explanation text present or empty-string but not null)."
+        "Backend provides a query for a subject-specific leaderboard (for physics, chemistry, biology) that returns a sorted ranking comparable to the overall leaderboard.",
+        "Rankings UI allows switching between Overall and a selected Subject leaderboard, and displays a ranked table of students for the chosen scope.",
+        "Overall leaderboard remains available and unchanged in meaning (global)."
       ]
     }
   ],
   "constraints": [
-    "Use English for any user-facing text added or modified in the UI.",
-    "Backend must remain a single Motoko actor in backend/main.mo; only introduce backend/migration.mo changes if required for state compatibility.",
-    "Do not edit files under frontend/src/components/ui or other immutablePaths listed in SYSTEM_CONTEXT; compose existing UI components instead.",
-    "Do not use external databases or third-party AI/LLM service integrations to fetch questions; all seeded content must be embedded/created within the app codebase."
+    "Backend must remain a single Motoko actor in backend/main.mo (no additional canisters/services).",
+    "Do not edit files under frontend/src/components/ui (compose existing UI components instead).",
+    "Do not modify immutable frontend hook files: frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useInternetIdentity.tsx, frontend/src/hooks/useActor.ts, frontend/src/main.tsx."
   ],
   "nonGoals": [
-    "Implementing third-party authentication providers (only Internet Identity is supported).",
-    "Adding real-time multiplayer or WebSocket-based features.",
-    "Building an admin CMS beyond the existing contributor/admin patterns (unless strictly required for seeding and viewing year-wise PYQs)."
+    "Add real-time/live updating rankings (no websockets or push).",
+    "Add third-party authentication providers (only Internet Identity is supported).",
+    "Introduce external databases or off-chain storage."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
-  },
-  "userProfileUpdate": {
-    "goalsToAdd": [],
-    "goalsToRemove": [],
-    "preferencesToAdd": [],
-    "preferencesToRemove": [],
-    "miscToAdd": [],
-    "miscToRemove": [],
-    "fieldsToSet": {},
-    "fieldsToDelete": []
   }
 }

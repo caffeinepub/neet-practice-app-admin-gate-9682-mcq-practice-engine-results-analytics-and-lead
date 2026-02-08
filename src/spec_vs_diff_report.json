@@ -1,58 +1,62 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-08T08:06:03.304Z",
-  "summary": "REQ-1 and REQ-3 appear implemented via new Practice question-number navigator UI and year-selection flow for PYQ categories, and backend data model/migration adds an optional year field. However, the diff summary provides no evidence of the required backend seeding/idempotent population of NEET-syllabus chapters and year-tagged PYQ questions (REQ-4). Several additional UI/auth/profile/contributor/admin related changes appear beyond the BuildRequest.",
-  "missing_requirements": [
-    {
-      "id": "REQ-4",
-      "requirement": "Populate the app with NEET-syllabus-based chapters for Physics, Chemistry, and Biology, and populate the NEET/JEE PYQ banks with year-tagged questions for years 2025–2000 (idempotent seeding; valid MCQ fields).",
-      "reason": "Diff shows a schema/migration update to support question.year, but does not show any seed data being added nor any idempotent seeding logic that creates NEET syllabus chapters and year-tagged PYQ questions across 2025–2000 on fresh deployment.",
-      "evidence": [
-        "backend/main.mo (truncated; shows type additions but no seeding shown)",
-        "backend/migration.mo (only sets year = null; no seed content)"
-      ]
-    }
-  ],
+  "generatedAt": "2026-02-08T08:20:38.448Z",
+  "summary": "REQ-1/REQ-2/REQ-3 appear largely implemented on the frontend (answer persistence, results review page, and subject/overall rankings UI). Backend support for subject stats and authorization is suggested by new types/imports, but key backend query/method implementations are not directly visible in the provided (truncated) backend diff summary. Several additional non-requested UX/style/admin/contributor improvements and a migration module were added.",
+  "missing_requirements": [],
   "hallucinated_features": [
     {
-      "description": "Profile setup gating and related UI flow for authenticated users (ProfileSetupCard shown when user has no profile; friendly profile load error UI).",
-      "reason": "Not requested by any REQ; BuildRequest focuses on practice navigation/resume and PYQ year/chapter seeding.",
+      "description": "Added a backend migration module and wired it into the actor via `(with migration = Migration.run)`.",
+      "reason": "BuildRequest did not ask for data migration functionality or a separate migration module file; it is an extra implementation detail added beyond the stated requirements.",
       "evidence": [
-        "frontend/src/App.tsx (truncated)",
-        "frontend-file-summaries.txt (ProfileSetupCard/App.tsx summaries)"
+        "backend/migration.mo",
+        "backend/main.mo"
       ]
     },
     {
-      "description": "Contributor gate behavior changes and new contributor access query hook (including messaging that unlock is not available).",
-      "reason": "Not requested; also explicitly mentions backend method not implemented, unrelated to REQs.",
+      "description": "Contributor page connection timeout/retry UX and related state management.",
+      "reason": "Not requested by REQ-1/REQ-2/REQ-3; this is additional contributor/admin UX work.",
       "evidence": [
-        "frontend/src/components/contributor/ContributorGateCard.tsx (truncated)",
-        "frontend/src/hooks/useAuthz.ts"
+        "frontend/src/pages/ContributorPage.tsx"
       ]
     },
     {
-      "description": "Added/updated admin panel gating behavior and additional documentation files (ARCHITECTURE.md, BACKEND_API.md).",
-      "reason": "Not requested in BuildRequest requirements/non-goals; docs/admin panel changes are extra scope.",
+      "description": "Home page contributor card disables navigation until actor is ready and shows 'Connecting to the canister...' loading UI.",
+      "reason": "Not part of the requested answer persistence/results/rankings feature set.",
       "evidence": [
-        "frontend-file-summaries.txt (AdminPage.tsx, ARCHITECTURE.md, BACKEND_API.md)"
+        "frontend/src/pages/HomePage.tsx"
+      ]
+    },
+    {
+      "description": "Global UI/theme/palette changes and branding/AppShell updates (education-focused color palette, branding, drawer banner, live name validation warning).",
+      "reason": "Not requested in BuildRequest and unrelated to REQ-1/REQ-2/REQ-3 functional requirements.",
+      "evidence": [
+        "frontend-file-summaries.txt"
+      ]
+    },
+    {
+      "description": "New frontend authorization helper hook(s) for contributor access (useAuthz) and removal of an unlockContributorMode hook due to missing backend method.",
+      "reason": "Authorization hook restructuring was not requested as part of the specified requirements.",
+      "evidence": [
+        "frontend/src/hooks/useAuthz.ts",
+        "frontend-file-summaries.txt"
       ]
     }
   ],
-  "confidence": 0.66,
+  "confidence": 0.62,
   "changed_files": [
     "backend/main.mo",
     "backend/migration.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/App.tsx",
-    "frontend/src/components/contributor/ContributorGateCard.tsx",
     "frontend/src/components/practice/QuestionNavigator.tsx",
-    "frontend/src/components/practice/YearSelectDialog.tsx",
     "frontend/src/hooks/useAuthz.ts",
     "frontend/src/hooks/useQueries.ts",
-    "frontend/src/pages/ChapterCategorySelectPage.tsx",
+    "frontend/src/pages/ContributorPage.tsx",
+    "frontend/src/pages/HomePage.tsx",
     "frontend/src/pages/PracticePage.tsx",
-    "frontend/src/utils/practiceProgressStorage.ts",
+    "frontend/src/pages/RankingsPage.tsx",
+    "frontend/src/pages/ResultsPage.tsx",
+    "frontend/src/types/practice.ts",
     "project_state.json"
   ]
 }

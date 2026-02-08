@@ -1,32 +1,32 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Build a NEET/JEE practice (quiz) platform with syllabus-based chapter organization and year-wise PYQ question banks, including user-friendly question navigation and session resume.",
-  "architectural_notes": [
-    "Store per-user attempt state (e.g., current question index/slide) to enable resume across sessions/devices."
+  "summary": "Question/quiz flow app that persists selected answers across questions and provides end-of-quiz subject-wise and overall student rankings.",
+  "architectural_notes": [],
+  "known_issues": [
+    "Selected answers are not being retained/saved when moving to the next question; end-of-quiz review/results cannot reflect prior answers reliably."
   ],
-  "known_issues": [],
-  "isFixRequest": false,
+  "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-update-the-practice-page-so-students-can-jump-to-any-question-by-clicking-on-a-visible-list-grid-of-question-numbers-a-question-navigator-instead-of-only-typing-a-number",
-      "title": "Update the Practice page so students can jump to any question by clicking on a visible list/grid of question numbers (a question navigator), instead of only typing a number.",
+      "id": "feature-update-the-practice-question-flow-so-that-when-a-student-submits-an-answer-and-moves-slides-to-the-next-question-the-previously-selected-answer-is-retained-for-that-question-and-is-available-at-the-end-of-the-session-for-review-including-when-navigating-back-to-previous-questions-using-the-question-navigator",
+      "title": "Update the practice question flow so that when a student submits an answer and moves (slides) to the next question, the previously selected answer is retained for that question and is available at the end of the session for review (including when navigating back to previous questions using the question navigator).",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-ensure-practice-resume-behavior-reliably-restores-the-student-to-the-same-question-slide-they-last-viewed-when-they-exit-and-later-return-to-the-same-subject-chapter-category-for-both-anonymous-and-authenticated-users",
-      "title": "Ensure practice resume behavior reliably restores the student to the same question/slide they last viewed when they exit and later return to the same (subject, chapter, category), for both anonymous and authenticated users.",
+      "id": "feature-implement-an-end-of-session-results-review-experience-that-displays-the-student-s-saved-answers-for-the-completed-session-question-by-question-using-authoritative-data-from-the-backend-test-result-created-on-submission",
+      "title": "Implement an end-of-session results/review experience that displays the student’s saved answers for the completed session (question-by-question) using authoritative data from the backend test result created on submission.",
       "reqIds": [
         "REQ-2"
       ],
       "version": 1
     },
     {
-      "id": "feature-add-support-for-year-wise-pyq-organization-for-neet-pyq-and-jee-pyq-questions-from-year-2025-down-to-2000-including-backend-data-modeling-and-frontend-year-selection-before-starting-pyq-practice",
-      "title": "Add support for year-wise PYQ organization for NEET PYQ and JEE PYQ questions from year 2025 down to 2000, including backend data modeling and frontend year selection before starting PYQ practice.",
+      "id": "feature-add-subject-wise-ranking-and-overall-ranking-of-all-students-overall-ranking-should-continue-to-work-as-a-global-leaderboard-and-subject-wise-ranking-should-rank-students-using-subject-specific-performance-aggregated-from-submitted-test-results",
+      "title": "Add subject-wise ranking and overall ranking of all students. Overall ranking should continue to work as a global leaderboard, and subject-wise ranking should rank students using subject-specific performance aggregated from submitted test results.",
       "reqIds": [
         "REQ-3"
       ],
@@ -36,38 +36,18 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Allow students to jump/skip to any question by clicking its question number (question navigator).",
+      "summary": "Persist/save each selected answer when user advances to the next question so previous answers remain stored for the session/result.",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "Persist quiz progress so if a student exits and returns later, they resume at the same question/slide where they left off.",
+      "summary": "Add results/ranking view showing subject-wise ranking of all students and overall ranking.",
       "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-3",
-      "summary": "Add Physics, Chemistry, and Biology chapters based on the NEET syllabus.",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-4",
-      "summary": "Add a NEET/JEE PYQ section with questions organized year-wise from 2025 down to 2000 (populate using AI-assisted sourcing).",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-8",
-      "summary": "Populate the app with NEET-syllabus-based chapters for Physics, Chemistry, and Biology, and populate the NEET/JEE PYQ banks with year-tagged questions for years 2025–2000.",
-      "reqIds": [
-        "REQ-4"
-      ],
       "status": "pending"
     }
   ],
-  "projectName": "Add clickable question navigator, resume practice position, and seed NEET syllabus chapters + year-wise PYQ (2025–2000)",
+  "projectName": "Persist answers across question navigation and add subject-wise + overall student rankings",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

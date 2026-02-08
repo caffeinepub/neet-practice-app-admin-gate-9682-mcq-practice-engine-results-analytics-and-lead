@@ -70,6 +70,25 @@ export const QuestionAttempt = IDL.Record({
   'chosenOption' : IDL.Text,
   'timeTaken' : IDL.Int,
 });
+export const TestResult = IDL.Record({
+  'id' : IDL.Nat,
+  'subject' : Subject,
+  'createdAt' : IDL.Int,
+  'user' : IDL.Principal,
+  'attempts' : IDL.Vec(QuestionAttempt),
+  'chapterId' : IDL.Nat,
+  'score' : IDL.Nat,
+});
+export const SubjectUserStats = IDL.Record({
+  'averageTimePerQuestion' : IDL.Nat,
+  'subject' : Subject,
+  'displayName' : IDL.Text,
+  'totalQuestionsAnswered' : IDL.Nat,
+  'joinedAt' : IDL.Int,
+  'user' : IDL.Principal,
+  'correctAnswers' : IDL.Nat,
+  'accuracy' : IDL.Float64,
+});
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
@@ -123,6 +142,21 @@ export const idlService = IDL.Service({
       [IDL.Vec(Question)],
       ['query'],
     ),
+  'getSessionReviewByTestResultId' : IDL.Func(
+      [IDL.Nat],
+      [TestResult, IDL.Vec(Question)],
+      ['query'],
+    ),
+  'getSubjectLeaderboard' : IDL.Func(
+      [Subject],
+      [IDL.Vec(SubjectUserStats)],
+      ['query'],
+    ),
+  'getSubjectStats' : IDL.Func(
+      [Subject],
+      [IDL.Vec(SubjectUserStats)],
+      ['query'],
+    ),
   'getTotalAuthenticatedUsers' : IDL.Func([], [IDL.Nat], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
@@ -130,7 +164,6 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getUserStats' : IDL.Func([IDL.Principal], [UserStats], ['query']),
-  'hasContributorAccess' : IDL.Func([], [IDL.Bool], ['query']),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'listChapters' : IDL.Func([], [IDL.Vec(Chapter)], ['query']),
   'listQuestions' : IDL.Func([], [IDL.Vec(Question)], ['query']),
@@ -229,6 +262,25 @@ export const idlFactory = ({ IDL }) => {
     'chosenOption' : IDL.Text,
     'timeTaken' : IDL.Int,
   });
+  const TestResult = IDL.Record({
+    'id' : IDL.Nat,
+    'subject' : Subject,
+    'createdAt' : IDL.Int,
+    'user' : IDL.Principal,
+    'attempts' : IDL.Vec(QuestionAttempt),
+    'chapterId' : IDL.Nat,
+    'score' : IDL.Nat,
+  });
+  const SubjectUserStats = IDL.Record({
+    'averageTimePerQuestion' : IDL.Nat,
+    'subject' : Subject,
+    'displayName' : IDL.Text,
+    'totalQuestionsAnswered' : IDL.Nat,
+    'joinedAt' : IDL.Int,
+    'user' : IDL.Principal,
+    'correctAnswers' : IDL.Nat,
+    'accuracy' : IDL.Float64,
+  });
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
@@ -282,6 +334,21 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(Question)],
         ['query'],
       ),
+    'getSessionReviewByTestResultId' : IDL.Func(
+        [IDL.Nat],
+        [TestResult, IDL.Vec(Question)],
+        ['query'],
+      ),
+    'getSubjectLeaderboard' : IDL.Func(
+        [Subject],
+        [IDL.Vec(SubjectUserStats)],
+        ['query'],
+      ),
+    'getSubjectStats' : IDL.Func(
+        [Subject],
+        [IDL.Vec(SubjectUserStats)],
+        ['query'],
+      ),
     'getTotalAuthenticatedUsers' : IDL.Func([], [IDL.Nat], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
@@ -289,7 +356,6 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getUserStats' : IDL.Func([IDL.Principal], [UserStats], ['query']),
-    'hasContributorAccess' : IDL.Func([], [IDL.Bool], ['query']),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'listChapters' : IDL.Func([], [IDL.Vec(Chapter)], ['query']),
     'listQuestions' : IDL.Func([], [IDL.Vec(Question)], ['query']),

@@ -7,6 +7,7 @@ import Text "mo:core/Text";
 import Time "mo:core/Time";
 import Nat "mo:core/Nat";
 import Runtime "mo:core/Runtime";
+import Iter "mo:core/Iter";
 
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
@@ -120,6 +121,29 @@ actor {
     };
   };
 
+  public type SubjectUserStats = {
+    user : Principal;
+    displayName : Text;
+    subject : Subject;
+    totalQuestionsAnswered : Nat;
+    correctAnswers : Nat;
+    accuracy : Float;
+    averageTimePerQuestion : Nat;
+    joinedAt : Int;
+  };
+
+  module SubjectUserStats {
+    public func compare(a : SubjectUserStats, b : SubjectUserStats) : Order.Order {
+      if (a.correctAnswers > b.correctAnswers) { #less }
+      else if (a.correctAnswers < b.correctAnswers) { #greater }
+      else if (a.totalQuestionsAnswered > b.totalQuestionsAnswered) {
+        #less;
+      } else if (a.totalQuestionsAnswered < b.totalQuestionsAnswered) {
+        #greater;
+      } else { #equal };
+    };
+  };
+
   public type QuestionAttempt = {
     questionId : Nat;
     chosenOption : Text;
@@ -188,17 +212,6 @@ actor {
   include MixinAuthorization(accessControlState);
 
   // ========= RESOURCE GUARDS ========= //
-  public query ({ caller }) func hasContributorAccess() : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can check contributor access");
-    };
-
-    switch (contributorAccess.get(caller)) {
-      case (?hasAccess) { hasAccess };
-      case (null) { false };
-    };
-  };
-
   public query ({ caller }) func getTotalAuthenticatedUsers() : async Nat {
     if (not (isContributor(caller))) {
       Runtime.trap("Unauthorized: Only contributors can view authenticated user stats");
@@ -216,7 +229,7 @@ actor {
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only view your own profile");
+      Runtime.trap("Unauthorized: Can only view your own profile or admin can view any profile");
     };
     userProfiles.get(user);
   };
@@ -553,6 +566,38 @@ actor {
     nextTestResultId - 1;
   };
 
+  // ========== REVIEW TEST RESULTS BY ID ========== //
+  public query ({ caller }) func getSessionReviewByTestResultId(testResultId : Nat) : async (TestResult, [Question]) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can get session reviews");
+    };
+
+    let testResult = switch (testResults.get(testResultId)) {
+      case (?result) { result };
+      case (null) {
+        Runtime.trap("Test result not found (test result id: " # testResultId.toText() # " )");
+      };
+    };
+
+    // Authorization: Users can only view their own test results, admins can view any
+    if (testResult.user != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own test results");
+    };
+
+    let questionsArray = testResult.attempts.map(
+      func(attempt) {
+        switch (questions.get(attempt.questionId)) {
+          case (?q) { q };
+          case (null) {
+            Runtime.trap("Question not found (question_id: " # attempt.questionId.toText() # " )");
+          };
+        };
+      }
+    );
+
+    (testResult, questionsArray);
+  };
+
   // ========= LEADERBOARD ========= //
   public query func getLeaderboard() : async [UserStats] {
     userStats.values().toArray().sort();
@@ -560,7 +605,7 @@ actor {
 
   public query ({ caller }) func getUserStats(principal : Principal) : async UserStats {
     if (caller != principal and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only view your own stats");
+      Runtime.trap("Unauthorized: Can only view your own stats or admin can view any stats");
     };
 
     switch (userStats.get(principal)) {
@@ -574,7 +619,7 @@ actor {
           totalQuestionsAnswered = 0;
           correctAnswers = 0;
           averageTimePerQuestion = 0;
-          joinedAt = Time.now();
+          joinedAt = 0;
         };
       };
       case (?stats) { stats };
@@ -597,11 +642,165 @@ actor {
           totalQuestionsAnswered = 0;
           correctAnswers = 0;
           averageTimePerQuestion = 0;
-          joinedAt = Time.now();
+          joinedAt = 0;
         };
       };
       case (?stats) { stats };
     };
+  };
+
+  public query func getSubjectStats(subject : Subject) : async [SubjectUserStats] {
+    // Public leaderboard - no authorization needed
+    let userAttempts : Map.Map<Principal, [QuestionAttempt]> = Map.empty();
+
+    for (testResult in testResults.values()) {
+      let filteredAttempts = testResult.attempts.filter(
+        func(attempt) {
+          switch (questions.get(attempt.questionId)) {
+            case (?q) { q.subject == subject };
+            case (null) { false };
+          };
+        }
+      );
+
+      if (filteredAttempts.size() > 0) {
+        let currentAttempts = switch (userAttempts.get(testResult.user)) {
+          case (?attempts) { attempts };
+          case (null) { [] };
+        };
+        userAttempts.add(testResult.user, currentAttempts.concat(filteredAttempts));
+      };
+    };
+
+    let results = userAttempts.entries().toArray().map(
+      func((userId, attempts) : (Principal, [QuestionAttempt])) : SubjectUserStats {
+        let stats = switch (userStats.get(userId)) {
+          case (?s) { s };
+          case (null) {
+            let displayName = switch (userProfiles.get(userId)) {
+              case (?profile) { profile.name };
+              case (_) { "Anonymous" };
+            };
+            {
+              displayName;
+              totalQuestionsAnswered = 0;
+              correctAnswers = 0;
+              averageTimePerQuestion = 0;
+              joinedAt = 0;
+            };
+          };
+        };
+
+        let correctAnswers = attempts.filter(func(a) { a.isCorrect }).size();
+        let totalAnswers = attempts.size();
+        let accuracy = if (totalAnswers > 0) {
+          correctAnswers.toFloat() / totalAnswers.toFloat();
+        } else {
+          0.0;
+        };
+
+        var totalTime : Int = 0;
+        for (attempt in attempts.values()) {
+          totalTime += attempt.timeTaken;
+        };
+
+        let avgTime = if (totalAnswers > 0) {
+          (totalTime / totalAnswers).toNat();
+        } else {
+          0;
+        };
+
+        {
+          user = userId;
+          displayName = stats.displayName;
+          subject;
+          correctAnswers;
+          totalQuestionsAnswered = totalAnswers;
+          accuracy;
+          averageTimePerQuestion = avgTime;
+          joinedAt = stats.joinedAt;
+        };
+      }
+    );
+
+    results.sort();
+  };
+
+  public query func getSubjectLeaderboard(subject : Subject) : async [SubjectUserStats] {
+    // Public leaderboard - no authorization needed
+    let userAttempts : Map.Map<Principal, [QuestionAttempt]> = Map.empty();
+
+    for (testResult in testResults.values()) {
+      let filteredAttempts = testResult.attempts.filter(
+        func(attempt) {
+          switch (questions.get(attempt.questionId)) {
+            case (?q) { q.subject == subject };
+            case (null) { false };
+          };
+        }
+      );
+
+      if (filteredAttempts.size() > 0) {
+        let currentAttempts = switch (userAttempts.get(testResult.user)) {
+          case (?attempts) { attempts };
+          case (null) { [] };
+        };
+        userAttempts.add(testResult.user, currentAttempts.concat(filteredAttempts));
+      };
+    };
+
+    let results = userAttempts.entries().toArray().map(
+      func((userId, attempts) : (Principal, [QuestionAttempt])) : SubjectUserStats {
+        let stats = switch (userStats.get(userId)) {
+          case (?s) { s };
+          case (null) {
+            let displayName = switch (userProfiles.get(userId)) {
+              case (?profile) { profile.name };
+              case (_) { "Anonymous" };
+            };
+            {
+              displayName;
+              totalQuestionsAnswered = 0;
+              correctAnswers = 0;
+              averageTimePerQuestion = 0;
+              joinedAt = 0;
+            };
+          };
+        };
+
+        let correctAnswers = attempts.filter(func(a) { a.isCorrect }).size();
+        let totalAnswers = attempts.size();
+        let accuracy = if (totalAnswers > 0) {
+          correctAnswers.toFloat() / totalAnswers.toFloat();
+        } else {
+          0.0;
+        };
+
+        var totalTime : Int = 0;
+        for (attempt in attempts.values()) {
+          totalTime += attempt.timeTaken;
+        };
+
+        let avgTime = if (totalAnswers > 0) {
+          (totalTime / totalAnswers).toNat();
+        } else {
+          0;
+        };
+
+        {
+          user = userId;
+          displayName = stats.displayName;
+          subject;
+          correctAnswers;
+          totalQuestionsAnswered = totalAnswers;
+          accuracy;
+          averageTimePerQuestion = avgTime;
+          joinedAt = stats.joinedAt;
+        };
+      }
+    );
+
+    results.sort();
   };
 
   func isContributor(caller : Principal) : Bool {

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
 import { useInternetIdentity } from './useInternetIdentity';
-import type { UserProfile, Chapter, Question, QuestionAttempt, UserStats, Subject, Category, PracticeProgressKey, PracticeProgress } from '../backend';
+import type { UserProfile, Chapter, Question, QuestionAttempt, UserStats, Subject, Category, PracticeProgressKey, PracticeProgress, TestResult, SubjectUserStats } from '../backend';
 
 // User Profile
 export function useGetCallerUserProfile() {
@@ -297,7 +297,24 @@ export function useSubmitTestResult() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['callerStats'] });
       queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['subjectLeaderboard'] });
     },
+  });
+}
+
+// Get Session Review by Test Result ID
+export function useGetSessionReview(testResultId: bigint | null) {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+
+  return useQuery<[TestResult, Question[]]>({
+    queryKey: ['sessionReview', testResultId?.toString()],
+    queryFn: async () => {
+      if (!actor || testResultId === null) throw new Error('Actor or result ID not available');
+      return actor.getSessionReviewByTestResultId(testResultId);
+    },
+    enabled: !!actor && !actorFetching && !!identity && testResultId !== null,
+    retry: false,
   });
 }
 
@@ -312,6 +329,20 @@ export function useGetLeaderboard() {
       return actor.getLeaderboard();
     },
     enabled: !!actor && !actorFetching,
+  });
+}
+
+// Subject Leaderboard
+export function useGetSubjectLeaderboard(subject: Subject | null) {
+  const { actor, isFetching: actorFetching } = useActor();
+
+  return useQuery<SubjectUserStats[]>({
+    queryKey: ['subjectLeaderboard', subject],
+    queryFn: async () => {
+      if (!actor || !subject) return [];
+      return actor.getSubjectLeaderboard(subject);
+    },
+    enabled: !!actor && !actorFetching && !!subject,
   });
 }
 

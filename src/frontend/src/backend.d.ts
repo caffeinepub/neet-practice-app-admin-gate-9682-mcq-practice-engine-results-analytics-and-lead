@@ -7,6 +7,19 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
+export interface SubjectUserStats {
+    averageTimePerQuestion: bigint;
+    subject: Subject;
+    displayName: string;
+    totalQuestionsAnswered: bigint;
+    joinedAt: bigint;
+    user: Principal;
+    correctAnswers: bigint;
+    accuracy: number;
+}
+export interface UserProfile {
+    name: string;
+}
 export interface Chapter {
     id: bigint;
     title: string;
@@ -53,8 +66,14 @@ export interface UserStats {
     joinedAt: bigint;
     correctAnswers: bigint;
 }
-export interface UserProfile {
-    name: string;
+export interface TestResult {
+    id: bigint;
+    subject: Subject;
+    createdAt: bigint;
+    user: Principal;
+    attempts: Array<QuestionAttempt>;
+    chapterId: bigint;
+    score: bigint;
 }
 export enum Category {
     level1 = "level1",
@@ -86,10 +105,12 @@ export interface backendInterface {
     getPracticeProgress(key: PracticeProgressKey): Promise<PracticeProgress | null>;
     getQuestionsForChapter(chapterId: bigint): Promise<Array<Question>>;
     getQuestionsForYear(year: bigint, category: Category): Promise<Array<Question>>;
+    getSessionReviewByTestResultId(testResultId: bigint): Promise<[TestResult, Array<Question>]>;
+    getSubjectLeaderboard(subject: Subject): Promise<Array<SubjectUserStats>>;
+    getSubjectStats(subject: Subject): Promise<Array<SubjectUserStats>>;
     getTotalAuthenticatedUsers(): Promise<bigint>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     getUserStats(principal: Principal): Promise<UserStats>;
-    hasContributorAccess(): Promise<boolean>;
     isCallerAdmin(): Promise<boolean>;
     listChapters(): Promise<Array<Chapter>>;
     listQuestions(): Promise<Array<Question>>;

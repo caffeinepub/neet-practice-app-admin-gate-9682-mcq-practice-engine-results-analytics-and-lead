@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Subject, QuestionAttempt, Category, PracticeProgressKey } from '../backend';
 import { cn } from '@/lib/utils';
 import { loadLastIndex, saveLastIndex, clearProgress, createStorageKey } from '../utils/practiceProgressStorage';
+import type { PerQuestionAnswer } from '../types/practice';
 
 export default function PracticePage() {
   const navigate = useNavigate();
@@ -40,7 +41,10 @@ export default function PracticePage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [attempts, setAttempts] = useState<QuestionAttempt[]>([]);
+  
+  // Store per-question answers keyed by question index
+  const [answersMap, setAnswersMap] = useState<Map<number, PerQuestionAnswer>>(new Map());
+  
   const [progressRestored, setProgressRestored] = useState(false);
   const timer = usePracticeTimer();
 
@@ -55,6 +59,9 @@ export default function PracticePage() {
   const currentQuestion = questions?.[currentIndex];
   const totalQuestions = questions?.length || 0;
   const progress = totalQuestions > 0 ? ((currentIndex + 1) / totalQuestions) * 100 : 0;
+
+  // Track which questions have been answered
+  const answeredQuestions = new Set(answersMap.keys());
 
   // Restore progress on mount
   useEffect(() => {
@@ -82,13 +89,21 @@ export default function PracticePage() {
     }
   }, [questions, backendProgress, identity, progressLoading, progressRestored]);
 
+  // Restore selected option when navigating to a question that was already answered
   useEffect(() => {
-    if (currentQuestion && !showFeedback && progressRestored) {
-      setSelectedOption(null);
+    if (currentQuestion && progressRestored) {
+      const savedAnswer = answersMap.get(currentIndex);
+      if (savedAnswer) {
+        setSelectedOption(savedAnswer.selectedOption);
+        setShowFeedback(false); // Don't show feedback when returning to answered question
+      } else {
+        setSelectedOption(null);
+        setShowFeedback(false);
+      }
       timer.reset();
       timer.start();
     }
-  }, [currentIndex, showFeedback, progressRestored]);
+  }, [currentIndex, progressRestored]);
 
   // Save progress whenever currentIndex changes
   useEffect(() => {
@@ -130,21 +145,42 @@ export default function PracticePage() {
   const handleNext = () => {
     if (!currentQuestion || !selectedOption) return;
 
-    const attempt: QuestionAttempt = {
-      questionId: currentQuestion.id,
-      chosenOption: selectedOption,
+    // Save the answer for this question
+    const answer: PerQuestionAnswer = {
+      selectedOption,
       isCorrect: selectedOption === currentQuestion.correctOption,
       timeTaken: timer.elapsedMicroseconds,
     };
-
-    const newAttempts = [...attempts, attempt];
-    setAttempts(newAttempts);
+    
+    setAnswersMap(prev => {
+      const newMap = new Map(prev);
+      newMap.set(currentIndex, answer);
+      return newMap;
+    });
 
     if (currentIndex < totalQuestions - 1) {
       setCurrentIndex(currentIndex + 1);
       setShowFeedback(false);
     } else {
-      handleSubmit(newAttempts);
+      // Build final attempts array from all answered questions
+      const finalAttempts: QuestionAttempt[] = [];
+      const updatedAnswersMap = new Map(answersMap);
+      updatedAnswersMap.set(currentIndex, answer);
+      
+      // Iterate through questions in order and collect attempts
+      for (let i = 0; i < questions.length; i++) {
+        const savedAnswer = updatedAnswersMap.get(i);
+        if (savedAnswer) {
+          finalAttempts.push({
+            questionId: questions[i].id,
+            chosenOption: savedAnswer.selectedOption,
+            isCorrect: savedAnswer.isCorrect,
+            timeTaken: savedAnswer.timeTaken,
+          });
+        }
+      }
+      
+      handleSubmit(finalAttempts);
     }
   };
 
@@ -183,16 +219,13 @@ export default function PracticePage() {
       setShowFeedback(false);
     }
     setCurrentIndex(index);
-    setSelectedOption(null);
-    timer.reset();
-    timer.start();
   };
 
   const handleRestart = () => {
     setCurrentIndex(0);
     setShowFeedback(false);
     setSelectedOption(null);
-    setAttempts([]);
+    setAnswersMap(new Map());
     timer.reset();
     timer.start();
 
@@ -309,6 +342,7 @@ export default function PracticePage() {
               currentIndex={currentIndex}
               onNavigate={handleNavigateToQuestion}
               disabled={false}
+              answeredQuestions={answeredQuestions}
             />
           </CardContent>
         </Card>
