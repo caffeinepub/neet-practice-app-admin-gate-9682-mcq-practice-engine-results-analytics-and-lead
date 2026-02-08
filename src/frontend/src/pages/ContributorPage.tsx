@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useActor } from '../hooks/useActor';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import { useHasContributorAccess } from '../hooks/useAuthz';
 import {
   useListChapters,
   useGetQuestionsForChapter,
@@ -11,8 +12,9 @@ import {
   useCreateChapter,
   useUpdateChapter,
   useGetTotalAuthenticatedUsers,
-  useDeleteQuestion,
   useIsCallerAdmin,
+  useDeleteAllQuestions,
+  useDeleteQuestionsForChapterAndCategory,
 } from '../hooks/useQueries';
 import MobilePage from '../components/layout/MobilePage';
 import ContributorGateCard from '../components/contributor/ContributorGateCard';
@@ -36,7 +38,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Plus, Edit, HelpCircle, Loader2, AlertCircle, Users, BookPlus, Trash2 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { ArrowLeft, Plus, Edit, HelpCircle, Loader2, AlertCircle, Users, BookPlus, Trash2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Subject, Category } from '../backend';
 
@@ -46,34 +49,32 @@ const categoryLabels: Record<Category, string> = {
   [Category.jeePYQ]: 'JEE PYQ',
 };
 
-const CONNECTION_TIMEOUT_MS = 15000; // 15 seconds
+const CONNECTION_TIMEOUT_MS = 15000;
 
 export default function ContributorPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
-  
+
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
-  
-  // Timeout state management
+  const [selectedCategory, setSelectedCategory] = useState<Category>(Category.level1);
+
   const [connectionTimedOut, setConnectionTimedOut] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
 
-  // Contributor access state - will be determined by attempting to fetch data
-  const [hasAccess, setHasAccess] = useState(false);
-  const [accessChecked, setAccessChecked] = useState(false);
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
+  const [deleteChapterCategoryDialogOpen, setDeleteChapterCategoryDialogOpen] = useState(false);
 
-  // Delete confirmation state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [questionToDelete, setQuestionToDelete] = useState<bigint | null>(null);
-
-  // Fetch chapters to check contributor access
-  const { data: chapters, isLoading: chaptersLoading, error: chaptersError } = useListChapters(true);
-  const { data: questions, isLoading: questionsLoading } = useGetQuestionsForChapter(
-    selectedChapterId ? BigInt(selectedChapterId) : null
-  );
+  const { data: hasAccess, isLoading: accessLoading } = useHasContributorAccess();
+  const { data: chapters, isLoading: chaptersLoading } = useListChapters(hasAccess);
+  const {
+    data: questions,
+    isLoading: questionsLoading,
+    isError: questionsError,
+    error: questionsErrorObj,
+  } = useGetQuestionsForChapter(selectedChapterId ? BigInt(selectedChapterId) : null);
   const { data: totalUsers, isLoading: totalUsersLoading } = useGetTotalAuthenticatedUsers();
   const { data: isAdmin, isLoading: isAdminLoading } = useIsCallerAdmin();
 
@@ -81,7 +82,8 @@ export default function ContributorPage() {
   const updateQuestion = useUpdateQuestion();
   const createChapter = useCreateChapter();
   const updateChapter = useUpdateChapter();
-  const deleteQuestion = useDeleteQuestion();
+  const deleteAllQuestions = useDeleteAllQuestions();
+  const deleteQuestionsForChapterAndCategory = useDeleteQuestionsForChapterAndCategory();
 
   const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
@@ -119,21 +121,6 @@ export default function ContributorPage() {
   const isActorReady = !!actor && !actorFetching;
   const isLoggedIn = !!identity;
 
-  // Check contributor access based on chapters query result
-  useEffect(() => {
-    if (isLoggedIn && !chaptersLoading && !accessChecked) {
-      if (chaptersError) {
-        // If there's an error, user likely doesn't have access
-        setHasAccess(false);
-      } else if (chapters !== undefined) {
-        // If chapters loaded successfully, user has access
-        setHasAccess(true);
-      }
-      setAccessChecked(true);
-    }
-  }, [isLoggedIn, chaptersLoading, chaptersError, chapters, accessChecked]);
-
-  // Timeout effect: start timer when actor is not ready
   useEffect(() => {
     if (!isActorReady && !connectionTimedOut) {
       const timeoutId = setTimeout(() => {
@@ -144,7 +131,6 @@ export default function ContributorPage() {
     }
   }, [isActorReady, connectionTimedOut]);
 
-  // Reset timeout when actor becomes ready
   useEffect(() => {
     if (isActorReady) {
       setConnectionTimedOut(false);
@@ -155,11 +141,9 @@ export default function ContributorPage() {
   const handleRetry = async () => {
     setIsRetrying(true);
     setConnectionTimedOut(false);
-    
-    // Invalidate all queries to trigger a fresh fetch
+
     await queryClient.invalidateQueries();
-    
-    // Reset timeout after a brief delay
+
     setTimeout(() => {
       if (!isActorReady) {
         setIsRetrying(false);
@@ -167,22 +151,17 @@ export default function ContributorPage() {
     }, 2000);
   };
 
-  // Show timeout recovery UI if connection takes too long
   if (connectionTimedOut && !isActorReady) {
     return (
       <MobilePage>
         <div className="flex flex-col items-center justify-center py-12">
-          <CanisterConnectionTimeoutCard
-            onRetry={handleRetry}
-            isRetrying={isRetrying}
-          />
+          <CanisterConnectionTimeoutCard onRetry={handleRetry} isRetrying={isRetrying} />
         </div>
       </MobilePage>
     );
   }
 
-  // Show loading state while actor is initializing or checking access
-  if (!isActorReady || (isLoggedIn && !accessChecked)) {
+  if (!isActorReady || (isLoggedIn && accessLoading)) {
     return (
       <MobilePage>
         <div className="flex flex-col items-center justify-center py-12 space-y-4">
@@ -195,7 +174,6 @@ export default function ContributorPage() {
     );
   }
 
-  // Show login prompt for anonymous users
   if (!isLoggedIn) {
     return (
       <MobilePage maxWidth="md">
@@ -220,7 +198,6 @@ export default function ContributorPage() {
     );
   }
 
-  // Show contributor gate if not unlocked
   if (!hasAccess) {
     return (
       <MobilePage maxWidth="md">
@@ -240,9 +217,7 @@ export default function ContributorPage() {
     );
   }
 
-  const filteredChapters = selectedSubject
-    ? chapters?.filter((c) => c.subject === selectedSubject) || []
-    : [];
+  const filteredChapters = selectedSubject ? chapters?.filter((c) => c.subject === selectedSubject) || [] : [];
 
   const handleCreateQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -305,54 +280,62 @@ export default function ContributorPage() {
     }
   };
 
-  const handleDeleteQuestion = async () => {
-    if (!questionToDelete) return;
-
+  const handleDeleteAllQuestions = async () => {
     try {
-      await deleteQuestion.mutateAsync(questionToDelete);
-      toast.success('Question deleted successfully');
-      setDeleteDialogOpen(false);
-      setQuestionToDelete(null);
+      await deleteAllQuestions.mutateAsync();
+      toast.success('All questions deleted successfully');
+      setDeleteAllDialogOpen(false);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete question');
+      toast.error(error.message || 'Failed to delete all questions');
     }
   };
 
-  const openDeleteDialog = (questionId: bigint) => {
-    setQuestionToDelete(questionId);
-    setDeleteDialogOpen(true);
+  const handleDeleteChapterCategoryQuestions = async () => {
+    if (!selectedChapterId) return;
+
+    try {
+      await deleteQuestionsForChapterAndCategory.mutateAsync({
+        chapterId: BigInt(selectedChapterId),
+        category: selectedCategory,
+      });
+      toast.success(`All ${categoryLabels[selectedCategory]} questions deleted for this chapter`);
+      setDeleteChapterCategoryDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete questions');
+    }
   };
 
   const handleCreateChapter = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCreateChapterError(null);
+
     if (!selectedSubject) {
-      toast.error('Please select a subject first');
-      return;
-    }
-    
-    const sequenceNum = parseInt(newChapterForm.sequence, 10);
-    if (isNaN(sequenceNum) || sequenceNum < 0) {
-      setCreateChapterError('Please enter a valid sequence number (0 or greater)');
+      setCreateChapterError('Please select a subject first');
       return;
     }
 
-    setCreateChapterError(null);
+    if (!newChapterForm.title.trim()) {
+      setCreateChapterError('Chapter title is required');
+      return;
+    }
+
+    if (!newChapterForm.sequence.trim()) {
+      setCreateChapterError('Sequence number is required');
+      return;
+    }
+
     try {
-      const newChapterId = await createChapter.mutateAsync({
+      await createChapter.mutateAsync({
         subject: selectedSubject,
         title: newChapterForm.title,
         description: newChapterForm.description,
-        sequence: BigInt(sequenceNum),
+        sequence: BigInt(newChapterForm.sequence),
       });
       toast.success('Chapter created successfully');
       setCreateChapterDialogOpen(false);
       resetNewChapterForm();
-      // Auto-select the newly created chapter
-      setSelectedChapterId(newChapterId.toString());
     } catch (error: any) {
-      const errorMessage = error.message || 'Failed to create chapter';
-      setCreateChapterError(errorMessage);
-      // Don't close the dialog on error
+      setCreateChapterError(error.message || 'Failed to create chapter');
     }
   };
 
@@ -360,18 +343,12 @@ export default function ContributorPage() {
     e.preventDefault();
     if (!editingChapter) return;
 
-    const sequenceNum = parseInt(chapterForm.sequence, 10);
-    if (isNaN(sequenceNum) || sequenceNum < 0) {
-      toast.error('Please enter a valid sequence number (0 or greater)');
-      return;
-    }
-
     try {
       await updateChapter.mutateAsync({
         id: editingChapter.id,
         title: chapterForm.title,
         description: chapterForm.description,
-        sequence: BigInt(sequenceNum),
+        sequence: BigInt(chapterForm.sequence),
       });
       toast.success('Chapter updated successfully');
       setChapterDialogOpen(false);
@@ -412,7 +389,7 @@ export default function ContributorPage() {
     });
   };
 
-  const openEditDialog = (question: any) => {
+  const openEditQuestionDialog = (question: any) => {
     setEditingQuestion(question);
     setQuestionForm({
       questionText: question.questionText,
@@ -428,12 +405,6 @@ export default function ContributorPage() {
     setQuestionDialogOpen(true);
   };
 
-  const openCreateDialog = () => {
-    setEditingQuestion(null);
-    resetQuestionForm();
-    setQuestionDialogOpen(true);
-  };
-
   const openEditChapterDialog = (chapter: any) => {
     setEditingChapter(chapter);
     setChapterForm({
@@ -444,57 +415,121 @@ export default function ContributorPage() {
     setChapterDialogOpen(true);
   };
 
+  const openCreateQuestionDialog = () => {
+    setEditingQuestion(null);
+    resetQuestionForm();
+    setQuestionDialogOpen(true);
+  };
+
   const openCreateChapterDialog = () => {
-    resetNewChapterForm();
     setCreateChapterError(null);
+    resetNewChapterForm();
     setCreateChapterDialogOpen(true);
   };
 
   return (
-    <MobilePage maxWidth="xl">
+    <MobilePage>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate({ to: '/' })}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">Contributor Panel</h1>
-            <p className="text-muted-foreground">Manage questions and chapters</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate({ to: '/' })}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Contributor Panel</h1>
+              <p className="text-muted-foreground">Manage questions and chapters</p>
+            </div>
           </div>
         </div>
 
         {!totalUsersLoading && totalUsers !== undefined && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Platform Statistics
-              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                <CardTitle>Platform Statistics</CardTitle>
+              </div>
             </CardHeader>
             <CardContent>
+              <div className="text-3xl font-bold">{totalUsers.toString()}</div>
+              <p className="text-sm text-muted-foreground">Total Authenticated Users</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isAdminLoading && isAdmin && (
+          <Card className="border-destructive/50">
+            <CardHeader>
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold">{totalUsers.toString()}</span>
-                <span className="text-muted-foreground">authenticated users</span>
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+                <CardTitle className="text-destructive">Admin Cleanup Actions</CardTitle>
               </div>
+              <CardDescription>Destructive operations - use with caution</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Button
+                  variant="destructive"
+                  onClick={() => setDeleteAllDialogOpen(true)}
+                  className="w-full"
+                  disabled={deleteAllQuestions.isPending}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete All Questions
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Permanently removes all questions from the entire platform
+                </p>
+              </div>
+
+              {selectedChapterId && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <Label>Delete Questions by Category</Label>
+                    <Select
+                      value={selectedCategory}
+                      onValueChange={(value) => setSelectedCategory(value as Category)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(categoryLabels).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="destructive"
+                      onClick={() => setDeleteChapterCategoryDialogOpen(true)}
+                      className="w-full"
+                      disabled={deleteQuestionsForChapterAndCategory.isPending}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete {categoryLabels[selectedCategory]} Questions for This Chapter
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Removes all {categoryLabels[selectedCategory]} questions for the selected chapter only
+                    </p>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
 
         <Card>
           <CardHeader>
-            <CardTitle>Select Subject & Chapter</CardTitle>
-            <CardDescription>Choose a subject and chapter to manage questions</CardDescription>
+            <CardTitle>Subject Selection</CardTitle>
+            <CardDescription>Choose a subject to manage its chapters and questions</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Subject</Label>
-              <Select
-                value={selectedSubject || ''}
-                onValueChange={(value) => {
-                  setSelectedSubject(value as Subject);
-                  setSelectedChapterId(null);
-                }}
-              >
+              <Select value={selectedSubject || ''} onValueChange={(value) => setSelectedSubject(value as Subject)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a subject" />
                 </SelectTrigger>
@@ -507,150 +542,147 @@ export default function ContributorPage() {
             </div>
 
             {selectedSubject && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Chapter</Label>
-                  <Button variant="ghost" size="sm" onClick={openCreateChapterDialog}>
-                    <BookPlus className="w-4 h-4 mr-2" />
-                    New Chapter
-                  </Button>
-                </div>
-                <Select value={selectedChapterId || ''} onValueChange={setSelectedChapterId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a chapter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredChapters.map((chapter) => (
-                      <SelectItem key={chapter.id.toString()} value={chapter.id.toString()}>
-                        {chapter.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Button onClick={openCreateChapterDialog} className="w-full">
+                <BookPlus className="w-4 h-4 mr-2" />
+                Create New Chapter
+              </Button>
             )}
           </CardContent>
         </Card>
 
-        {selectedSubject && selectedChapterId && (
-          <>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">Questions</h2>
-                <p className="text-sm text-muted-foreground">
-                  {questions?.length || 0} questions in this chapter
-                </p>
-              </div>
-              <Button onClick={openCreateDialog}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Question
-              </Button>
-            </div>
-
-            {questionsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-              </div>
-            ) : questions && questions.length > 0 ? (
-              <div className="space-y-3">
-                {questions.map((question) => (
-                  <Card key={question.id.toString()}>
-                    <CardHeader>
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="secondary">{categoryLabels[question.category]}</Badge>
-                            {question.year && <Badge variant="outline">Year: {question.year.toString()}</Badge>}
-                            <Badge>Correct: {question.correctOption}</Badge>
-                          </div>
-                          <CardTitle className="text-base whitespace-pre-wrap break-words">
-                            {question.questionText}
-                          </CardTitle>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(question)}>
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          {isAdmin && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openDeleteDialog(question.id)}
-                            >
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="grid gap-2 text-sm">
-                        <div>
-                          <span className="font-medium">A:</span>{' '}
-                          <span className="whitespace-pre-wrap break-words">{question.optionA}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">B:</span>{' '}
-                          <span className="whitespace-pre-wrap break-words">{question.optionB}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">C:</span>{' '}
-                          <span className="whitespace-pre-wrap break-words">{question.optionC}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">D:</span>{' '}
-                          <span className="whitespace-pre-wrap break-words">{question.optionD}</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  No questions yet. Click "Add Question" to create one.
-                </CardContent>
-              </Card>
-            )}
-          </>
-        )}
-
-        {selectedSubject && filteredChapters.length > 0 && (
+        {selectedSubject && (
           <Card>
             <CardHeader>
-              <CardTitle>Manage Chapters</CardTitle>
-              <CardDescription>Edit chapter details</CardDescription>
+              <CardTitle>Chapter Selection</CardTitle>
+              <CardDescription>Select a chapter to view and manage its questions</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {chaptersLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : filteredChapters.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No chapters available for this subject
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {filteredChapters.map((chapter) => (
+                    <div
+                      key={chapter.id.toString()}
+                      className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                        selectedChapterId === chapter.id.toString()
+                          ? 'border-primary bg-primary/5'
+                          : 'hover:border-primary/50'
+                      }`}
+                      onClick={() => setSelectedChapterId(chapter.id.toString())}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-medium">{chapter.title}</h3>
+                          <p className="text-sm text-muted-foreground">{chapter.description}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditChapterDialog(chapter);
+                          }}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {selectedChapterId && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Questions</CardTitle>
+                  <CardDescription>Manage questions for the selected chapter</CardDescription>
+                </div>
+                <Button onClick={openCreateQuestionDialog}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Question
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {filteredChapters.map((chapter) => (
-                  <div
-                    key={chapter.id.toString()}
-                    className="flex items-center justify-between p-3 rounded-lg border"
-                  >
-                    <div>
-                      <p className="font-medium">{chapter.title}</p>
-                      <p className="text-sm text-muted-foreground">Sequence: {chapter.sequence.toString()}</p>
+              {questionsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : questionsError ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Failed to load questions: {questionsErrorObj?.message || 'Unknown error'}
+                  </AlertDescription>
+                </Alert>
+              ) : !questions || questions.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No questions available for this chapter
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {questions.map((question) => (
+                    <div key={question.id.toString()} className="p-4 border rounded-lg space-y-2">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary">{categoryLabels[question.category]}</Badge>
+                            {question.year && <Badge variant="outline">Year: {question.year.toString()}</Badge>}
+                          </div>
+                          <p className="text-sm font-medium whitespace-pre-wrap">{question.questionText}</p>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="font-medium">A:</span> {question.optionA}
+                            </div>
+                            <div>
+                              <span className="font-medium">B:</span> {question.optionB}
+                            </div>
+                            <div>
+                              <span className="font-medium">C:</span> {question.optionC}
+                            </div>
+                            <div>
+                              <span className="font-medium">D:</span> {question.optionD}
+                            </div>
+                          </div>
+                          <div className="text-xs">
+                            <span className="font-medium text-green-600">Correct: {question.correctOption}</span>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditQuestionDialog(question)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => openEditChapterDialog(chapter)}>
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Question Dialog */}
       <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingQuestion ? 'Edit Question' : 'Create New Question'}</DialogTitle>
             <DialogDescription>
-              {editingQuestion ? 'Update the question details below' : 'Fill in the question details below'}
+              {editingQuestion ? 'Update the question details below' : 'Fill in the details to create a new question'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={editingQuestion ? handleUpdateQuestion : handleCreateQuestion} className="space-y-4">
@@ -666,49 +698,41 @@ export default function ContributorPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="optionA">Option A</Label>
-                <Textarea
+                <Input
                   id="optionA"
                   value={questionForm.optionA}
                   onChange={(e) => setQuestionForm({ ...questionForm, optionA: e.target.value })}
-                  placeholder="Option A"
                   required
-                  rows={2}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="optionB">Option B</Label>
-                <Textarea
+                <Input
                   id="optionB"
                   value={questionForm.optionB}
                   onChange={(e) => setQuestionForm({ ...questionForm, optionB: e.target.value })}
-                  placeholder="Option B"
                   required
-                  rows={2}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="optionC">Option C</Label>
-                <Textarea
+                <Input
                   id="optionC"
                   value={questionForm.optionC}
                   onChange={(e) => setQuestionForm({ ...questionForm, optionC: e.target.value })}
-                  placeholder="Option C"
                   required
-                  rows={2}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="optionD">Option D</Label>
-                <Textarea
+                <Input
                   id="optionD"
                   value={questionForm.optionD}
                   onChange={(e) => setQuestionForm({ ...questionForm, optionD: e.target.value })}
-                  placeholder="Option D"
                   required
-                  rows={2}
                 />
               </div>
             </div>
@@ -719,7 +743,7 @@ export default function ContributorPage() {
                 value={questionForm.correctOption}
                 onValueChange={(value) => setQuestionForm({ ...questionForm, correctOption: value })}
               >
-                <SelectTrigger id="correctOption">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -738,31 +762,32 @@ export default function ContributorPage() {
                 value={questionForm.explanation}
                 onChange={(e) => setQuestionForm({ ...questionForm, explanation: e.target.value })}
                 placeholder="Explain the correct answer"
-                required
                 rows={3}
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
                   value={questionForm.category}
                   onValueChange={(value) => setQuestionForm({ ...questionForm, category: value as Category })}
                 >
-                  <SelectTrigger id="category">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={Category.level1}>Level 1</SelectItem>
-                    <SelectItem value={Category.neetPYQ}>NEET PYQ</SelectItem>
-                    <SelectItem value={Category.jeePYQ}>JEE PYQ</SelectItem>
+                    {Object.entries(categoryLabels).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="year">
-                  Year <span className="text-muted-foreground">(optional, for PYQ)</span>
+                  Year <span className="text-muted-foreground">(Optional, for PYQ)</span>
                 </Label>
                 <Input
                   id="year"
@@ -770,24 +795,19 @@ export default function ContributorPage() {
                   value={questionForm.year}
                   onChange={(e) => setQuestionForm({ ...questionForm, year: e.target.value })}
                   placeholder="e.g., 2024"
-                  min="2000"
-                  max="2030"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setQuestionDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={createQuestion.isPending || updateQuestion.isPending}
-              >
+              <Button type="submit" disabled={createQuestion.isPending || updateQuestion.isPending}>
                 {createQuestion.isPending || updateQuestion.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
+                    {editingQuestion ? 'Updating...' : 'Creating...'}
                   </>
                 ) : editingQuestion ? (
                   'Update Question'
@@ -800,7 +820,6 @@ export default function ContributorPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Chapter Edit Dialog */}
       <Dialog open={chapterDialogOpen} onOpenChange={setChapterDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -814,7 +833,6 @@ export default function ContributorPage() {
                 id="chapterTitle"
                 value={chapterForm.title}
                 onChange={(e) => setChapterForm({ ...chapterForm, title: e.target.value })}
-                placeholder="Chapter title"
                 required
               />
             </div>
@@ -824,8 +842,6 @@ export default function ContributorPage() {
                 id="chapterDescription"
                 value={chapterForm.description}
                 onChange={(e) => setChapterForm({ ...chapterForm, description: e.target.value })}
-                placeholder="Chapter description"
-                required
                 rows={3}
               />
             </div>
@@ -836,9 +852,7 @@ export default function ContributorPage() {
                 type="number"
                 value={chapterForm.sequence}
                 onChange={(e) => setChapterForm({ ...chapterForm, sequence: e.target.value })}
-                placeholder="Display order"
                 required
-                min="0"
               />
             </div>
             <div className="flex justify-end gap-2">
@@ -860,12 +874,11 @@ export default function ContributorPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Chapter Dialog */}
       <Dialog open={createChapterDialogOpen} onOpenChange={setCreateChapterDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Chapter</DialogTitle>
-            <DialogDescription>Add a new chapter to {selectedSubject}</DialogDescription>
+            <DialogDescription>Add a new chapter for {selectedSubject}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateChapter} className="space-y-4">
             {createChapterError && (
@@ -880,7 +893,7 @@ export default function ContributorPage() {
                 id="newChapterTitle"
                 value={newChapterForm.title}
                 onChange={(e) => setNewChapterForm({ ...newChapterForm, title: e.target.value })}
-                placeholder="Chapter title"
+                placeholder="e.g., Thermodynamics"
                 required
               />
             </div>
@@ -890,8 +903,7 @@ export default function ContributorPage() {
                 id="newChapterDescription"
                 value={newChapterForm.description}
                 onChange={(e) => setNewChapterForm({ ...newChapterForm, description: e.target.value })}
-                placeholder="Chapter description"
-                required
+                placeholder="Brief description of the chapter"
                 rows={3}
               />
             </div>
@@ -902,13 +914,11 @@ export default function ContributorPage() {
                 type="number"
                 value={newChapterForm.sequence}
                 onChange={(e) => setNewChapterForm({ ...newChapterForm, sequence: e.target.value })}
-                placeholder="Display order"
+                placeholder="e.g., 1"
                 required
-                min="0"
               />
               <p className="text-xs text-muted-foreground">
-                <HelpCircle className="w-3 h-3 inline mr-1" />
-                Lower numbers appear first in the list
+                Order in which this chapter appears in the list
               </p>
             </div>
             <div className="flex justify-end gap-2">
@@ -930,28 +940,55 @@ export default function ContributorPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete All Questions?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the question from the database.
+              This will permanently delete all questions from the entire platform. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteQuestion}
+              onClick={handleDeleteAllQuestions}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleteQuestion.isPending ? (
+              {deleteAllQuestions.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Deleting...
                 </>
               ) : (
-                'Delete'
+                'Delete All'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteChapterCategoryDialogOpen} onOpenChange={setDeleteChapterCategoryDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {categoryLabels[selectedCategory]} Questions?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all {categoryLabels[selectedCategory]} questions for the selected chapter.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteChapterCategoryQuestions}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteQuestionsForChapterAndCategory.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Questions'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

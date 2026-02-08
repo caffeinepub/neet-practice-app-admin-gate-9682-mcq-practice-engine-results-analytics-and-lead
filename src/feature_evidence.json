@@ -2,15 +2,11 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-remove-the-pdf-upload-import-section-from-contributor-mode-and-revert-the-contributor-ui-to-manual-question-creation-editing-only-no-pdf-upload-button-no-pdf-import-tabs-mode-no-extracted-preview-list-and-no-bulk-save-flow",
-      "featureTitle": "Remove the PDF upload/import section from Contributor mode and revert the Contributor UI to manual question creation/editing only (no PDF upload button, no PDF import tabs/mode, no extracted preview list, and no bulk-save flow).",
+      "featureId": "feature-remove-the-ability-to-delete-individual-questions-from-the-contributor-panel-ui-remove-any-delete-trash-controls-the-delete-confirmation-dialog-and-any-wiring-that-triggers-single-question-deletion",
+      "featureTitle": "Remove the ability to delete individual questions from the Contributor Panel UI (remove any delete/trash controls, the delete confirmation dialog, and any wiring that triggers single-question deletion).",
       "files": [
-        "frontend/src/components/contributor/PdfImportPreviewList.tsx",
-        "frontend/src/pages/ContributorPage.tsx",
-        "frontend/src/utils/pdf/pdfSolutionMapping.ts",
-        "frontend/src/utils/pdf/pdfTextReconstruction.ts",
-        "frontend/src/utils/pdf/pdfToQuestions.ts",
-        "frontend/src/utils/pdf/pdfjsClient.ts"
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/ContributorPage.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -27,29 +23,8 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-ensure-the-student-practice-question-view-never-shows-the-global-something-went-wrong-error-due-to-missing-questions-or-invalid-indices-ids-instead-handle-these-cases-gracefully-with-an-english-user-friendly-empty-error-state-and-safe-navigation-back-to-selection-pages",
-      "featureTitle": "Ensure the Student/Practice question view never shows the global “Something went wrong” error due to missing questions or invalid indices/IDs; instead, handle these cases gracefully with an English, user-friendly empty/error state and safe navigation back to selection pages.",
-      "files": [
-        "frontend/src/pages/PracticePage.tsx",
-        "frontend/src/utils/practiceProgressStorage.ts"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "blob-storage@4.0.0"
-      ],
-      "testIds": [
-        "REQ-3"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-show-only-the-questions-the-user-admin-has-added-i-e-do-not-display-any-pdf-import-extracted-question-set-in-student-views-aligned-with-the-removal-of-pdf-import-ensure-question-listing-in-student-flows-is-based-only-on-the-persisted-question-set-and-does-not-include-any-transient-extracted-preview-data",
-      "featureTitle": "Show only the questions the user/admin has added (i.e., do not display any PDF-import/extracted question set in Student views), aligned with the removal of PDF import; ensure question listing in student flows is based only on the persisted question set and does not include any transient extracted preview data.",
+      "featureId": "feature-fix-the-student-practice-flow-so-opening-a-level-category-launches-a-valid-practice-session-without-showing-subject-is-required-chapter-id-is-required-category-is-required-please-go-back-and-select-a-valid-practice-session-restore-the-navigation-parameter-passing-behavior-to-match-the-working-previous-version",
+      "featureTitle": "Fix the student practice flow so opening a level/category launches a valid practice session without showing: \"Subject is required. Chapter ID is required. Category is required. Please go back and select a valid practice session.\" Restore the navigation/parameter passing behavior to match the working previous version.",
       "files": [
         "frontend/src/pages/PracticePage.tsx"
       ],
@@ -63,7 +38,7 @@
         "blob-storage@4.0.0"
       ],
       "testIds": [
-        "REQ-5"
+        "REQ-2"
       ],
       "confidence": "high"
     }

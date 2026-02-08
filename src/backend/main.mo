@@ -10,13 +10,11 @@ import Runtime "mo:core/Runtime";
 import Iter "mo:core/Iter";
 import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
-import Migration "migration";
-
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
-// Include persistent migration for core data (questions, chapters, etc.)
-(with migration = Migration.run)
+// Persistent state with modules for each core entity
+
 actor {
   include MixinStorage();
 
@@ -418,24 +416,29 @@ actor {
     currentId;
   };
 
-  // New bulk-create path for PDF imports (fixed return value bug)
-  public shared ({ caller }) func createQuestionsBulk(questionsInput : [Question]) : async [Nat] {
+  // Single create variant for question bulk upload (returns single id)
+  public shared ({ caller }) func createQuestionBulkUploadInput(input : Question) : async Nat {
     if (not (isContributor(caller) or AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only contributors can create questions");
+      Runtime.trap("Unauthorized: Only contributors can create questions (bulk upload path)");
     };
 
-    let newQuestionIds = questionsInput.map(
-      func(question) {
-        let newQuestion : Question = {
-          question with id = nextQuestionId;
-        };
-        questions.add(nextQuestionId, newQuestion);
-        nextQuestionId += 1;
-        newQuestion.id;
-      }
+    // Use the single createQuestion submits pipeline, for the input (API is duplicate in legacy frontend)
+    let currentId = await createQuestion(
+      input.subject,
+      input.chapterId,
+      input.questionText,
+      input.optionA,
+      input.optionB,
+      input.optionC,
+      input.optionD,
+      input.correctOption,
+      input.explanation,
+      input.category,
+      input.year,
+      input.questionImage,
+      input.explanationImage,
     );
-
-    newQuestionIds;
+    currentId;
   };
 
   public shared ({ caller }) func updateQuestion(
@@ -491,24 +494,37 @@ actor {
     questions.remove(id);
   };
 
-  public query ({ caller }) func listQuestions() : async [Question] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can list questions");
+  // ========= BULK QUESTION MANAGEMENT =========
+  public shared ({ caller }) func deleteAllQuestions() : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can delete all questions");
     };
-    questions.values().toArray();
+    questions.clear();
   };
 
-  public query ({ caller }) func getQuestionsForChapter(chapterId : Nat) : async [Question] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view questions");
+  public shared ({ caller }) func deleteQuestionsForChapterAndCategory(
+    chapterId : Nat,
+    category : Category,
+  ) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can delete questions by chapter and category");
     };
+
+    let filteredQuestions = questions.filter(
+      func(_id, q) { not (q.chapterId == chapterId and q.category == category) }
+    );
+    questions.clear();
+    for ((id, q) in filteredQuestions.entries()) {
+      questions.add(id, q);
+    };
+  };
+
+  // ========== PUBLIC QUESTION AND CHAPTER ENDPOINTS ==========
+  public query func getQuestionsForChapter(chapterId : Nat) : async [Question] {
     questions.values().toArray().filter(func(q) { q.chapterId == chapterId });
   };
 
-  public query ({ caller }) func getQuestionsForYear(year : Nat, category : Category) : async [Question] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view questions");
-    };
+  public query func getQuestionsForYear(year : Nat, category : Category) : async [Question] {
     questions.values().toArray().filter(
       func(q) {
         switch (q.year) {
@@ -517,6 +533,38 @@ actor {
         };
       }
     );
+  };
+
+  public query func getQuestionsByChapterAndCategory(
+    chapterId : Nat,
+    category : Category,
+  ) : async [Question] {
+    questions.values().toArray().filter(
+      func(q) { q.chapterId == chapterId and q.category == category }
+    );
+  };
+
+  public query func getQuestionsByChapterCategoryAndYear(
+    chapterId : Nat,
+    category : Category,
+    year : Nat,
+  ) : async [Question] {
+    questions.values().toArray()
+    .filter(func(q) { q.chapterId == chapterId and q.category == category })
+    .filter(func(q) {
+      switch (q.year) {
+        case (?qYear) { qYear == year };
+        case (null) { false };
+      };
+    });
+  };
+
+  public query func getAllChapters() : async [Chapter] {
+    chapters.values().toArray().sort();
+  };
+
+  public query func getChaptersBySubjectPublic(subject : Subject) : async [Chapter] {
+    chapters.values().toArray().filter(func(c) { c.subject == subject }).sort();
   };
 
   // ========= PRACTICE PROGRESS ========= //

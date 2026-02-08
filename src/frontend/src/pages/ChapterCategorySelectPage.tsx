@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { useGetQuestionsForChapter } from '../hooks/useQueries';
+import { useGetQuestionsByChapterAndCategory } from '../hooks/useQueries';
 import MobilePage from '../components/layout/MobilePage';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,10 +11,26 @@ import YearSelectDialog from '../components/practice/YearSelectDialog';
 export default function ChapterCategorySelectPage() {
   const navigate = useNavigate();
   const { subject, chapterId } = useParams({ from: '/chapter/$subject/$chapterId/category' });
-  const { data: questions, isLoading } = useGetQuestionsForChapter(BigInt(chapterId));
+  const chapterIdBigInt = BigInt(chapterId);
+
+  const { data: level1Questions, isLoading: level1Loading } = useGetQuestionsByChapterAndCategory(
+    chapterIdBigInt,
+    Category.level1
+  );
+  const { data: neetPYQQuestions, isLoading: neetLoading } = useGetQuestionsByChapterAndCategory(
+    chapterIdBigInt,
+    Category.neetPYQ
+  );
+  const { data: jeePYQQuestions, isLoading: jeeLoading } = useGetQuestionsByChapterAndCategory(
+    chapterIdBigInt,
+    Category.jeePYQ
+  );
+
   const [yearDialogOpen, setYearDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
+
+  const isLoading = level1Loading || neetLoading || jeeLoading;
 
   const subjectNames: Record<Subject, string> = {
     [Subject.physics]: 'Physics',
@@ -29,6 +45,7 @@ export default function ChapterCategorySelectPage() {
       description: 'Foundation questions to build your basics',
       icon: Target,
       color: 'bg-blue-500',
+      questions: level1Questions,
     },
     {
       id: Category.neetPYQ,
@@ -36,6 +53,7 @@ export default function ChapterCategorySelectPage() {
       description: 'Previous year questions from NEET exams',
       icon: Award,
       color: 'bg-green-500',
+      questions: neetPYQQuestions,
     },
     {
       id: Category.jeePYQ,
@@ -43,56 +61,53 @@ export default function ChapterCategorySelectPage() {
       description: 'Previous year questions from JEE exams',
       icon: Trophy,
       color: 'bg-amber-500',
+      questions: jeePYQQuestions,
     },
   ];
 
   const getCategoryQuestionCount = (category: Category) => {
-    if (!questions) return 0;
-    return questions.filter((q) => q.category === category).length;
+    const categoryData = categories.find((c) => c.id === category);
+    return categoryData?.questions?.length || 0;
   };
 
   const getAvailableYearsForCategory = (category: Category): number[] => {
-    if (!questions) return [];
-    const years = questions
-      .filter((q) => q.category === category && q.year !== undefined)
+    const categoryData = categories.find((c) => c.id === category);
+    if (!categoryData?.questions) return [];
+
+    const years = categoryData.questions
+      .filter((q) => q.year != null)
       .map((q) => Number(q.year))
       .filter((year) => !isNaN(year) && year >= 2000 && year <= 2025);
-    
-    // Return unique years in descending order
+
     return Array.from(new Set(years)).sort((a, b) => b - a);
   };
 
   const handleCategorySelect = (category: Category) => {
     const count = getCategoryQuestionCount(category);
     if (count === 0) {
-      return; // Button will be disabled
+      return;
     }
 
-    // Check if this is a PYQ category
     if (category === Category.neetPYQ || category === Category.jeePYQ) {
       const years = getAvailableYearsForCategory(category);
-      
+
       if (years.length === 0) {
-        // No years available, navigate without year
         navigate({
           to: '/practice/$subject/$chapterId/$category',
           params: { subject: subject as Subject, chapterId, category },
         });
       } else if (years.length === 1) {
-        // Only one year, auto-select it
         navigate({
           to: '/practice/$subject/$chapterId/$category',
           params: { subject: subject as Subject, chapterId, category },
           search: { year: years[0] },
         });
       } else {
-        // Multiple years, show selection dialog
         setSelectedCategory(category);
         setAvailableYears(years);
         setYearDialogOpen(true);
       }
     } else {
-      // Non-PYQ category, navigate directly
       navigate({
         to: '/practice/$subject/$chapterId/$category',
         params: { subject: subject as Subject, chapterId, category },
@@ -145,36 +160,38 @@ export default function ChapterCategorySelectPage() {
         <div className="grid gap-4">
           {categories.map((category) => {
             const Icon = category.icon;
-            const questionCount = getCategoryQuestionCount(category.id);
-            const isDisabled = questionCount === 0;
+            const count = getCategoryQuestionCount(category.id);
+            const isDisabled = count === 0;
 
             return (
               <Card
                 key={category.id}
-                className={`cursor-pointer transition-all hover:shadow-md ${
-                  isDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                className={`transition-all ${
+                  isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:shadow-lg hover:scale-[1.02]'
                 }`}
                 onClick={() => !isDisabled && handleCategorySelect(category.id)}
               >
                 <CardHeader>
-                  <div className="flex items-start gap-4">
-                    <div className={`${category.color} p-3 rounded-lg`}>
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-lg ${category.color}`}>
                       <Icon className="w-6 h-6 text-white" />
                     </div>
                     <div className="flex-1">
-                      <CardTitle className="text-xl">{category.title}</CardTitle>
-                      <CardDescription className="mt-1">{category.description}</CardDescription>
+                      <CardTitle>{category.title}</CardTitle>
+                      <CardDescription>{category.description}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">
-                      {questionCount} {questionCount === 1 ? 'question' : 'questions'} available
+                      {count} {count === 1 ? 'question' : 'questions'} available
                     </span>
-                    <Button size="sm" disabled={isDisabled}>
-                      {isDisabled ? 'No Questions' : 'Start Practice'}
-                    </Button>
+                    {!isDisabled && (
+                      <Button variant="ghost" size="sm">
+                        Start Practice →
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -187,9 +204,15 @@ export default function ChapterCategorySelectPage() {
         open={yearDialogOpen}
         onOpenChange={setYearDialogOpen}
         availableYears={availableYears}
+        categoryTitle={selectedCategory ? categoryLabels[selectedCategory] : ''}
         onYearSelect={handleYearSelect}
-        categoryTitle={selectedCategory ? categories.find((c) => c.id === selectedCategory)?.title || '' : ''}
       />
     </MobilePage>
   );
 }
+
+const categoryLabels: Record<Category, string> = {
+  [Category.level1]: 'Level 1',
+  [Category.neetPYQ]: 'NEET PYQ',
+  [Category.jeePYQ]: 'JEE PYQ',
+};

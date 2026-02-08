@@ -1,13 +1,11 @@
 # Specification
 
 ## Summary
-**Goal:** Remove PDF import from Contributor mode, ensure questions persist across upgrades, and fix “Something went wrong” errors in Student/Practice caused by missing/mismatched question IDs.
+**Goal:** Restore the student practice navigation/session loading flow and remove per-question deletion controls from contributor mode, while ensuring contributor-created questions are visible to students (including logged-out users).
 
 **Planned changes:**
-- Remove all PDF upload/import UI and related flows from Contributor mode, restoring manual question create/edit/delete only.
-- Fix backend bulk-create so returned question IDs always match the IDs stored and retrievable via normal queries.
-- Update Student/Practice flow to handle empty question sets, invalid saved progress indices, and missing questions gracefully with an in-page English message and safe back navigation (no global error screen).
-- Preserve existing chapters/questions and ID counters across backend upgrades by ensuring actor state is retained and migrated when needed.
-- Ensure Student views list and practice only persisted questions from backend queries (no PDF-extraction/preview data paths).
+- Remove all per-question delete UI and related confirmation/wiring from the Contributor Panel (trash/delete controls and single-question delete flow).
+- Fix navigation/parameter passing from ChapterCategorySelectPage to PracticePage so subject, chapterId, and category are correctly populated and the “Invalid Practice Session” validation error does not appear during normal use (including handling year selection only when applicable).
+- Update backend read-only access so unauthenticated users can load the chapter/question lists used by student practice, and ensure contributor-created questions are returned by the student query endpoints.
 
-**User-visible outcome:** Contributors can only add/edit questions manually (no PDF import). Students can open and practice questions without hitting a global error screen; if no questions exist or progress is invalid, they see a clear message and can navigate back. Existing questions remain available after future updates, and only admin-added/persisted questions appear in Student mode.
+**User-visible outcome:** Contributors can create/edit questions without seeing any per-question delete option, and students (even when not logged in) can open a level/category and start practice sessions normally with questions loading correctly for Level 1, NEET PYQ, and JEE PYQ.

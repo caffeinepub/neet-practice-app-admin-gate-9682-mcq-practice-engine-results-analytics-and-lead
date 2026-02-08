@@ -52,14 +52,6 @@ export const Question = IDL.Record({
   'optionC' : IDL.Text,
   'optionD' : IDL.Text,
 });
-export const UserStats = IDL.Record({
-  'averageTimePerQuestion' : IDL.Nat,
-  'displayName' : IDL.Text,
-  'totalQuestionsAnswered' : IDL.Nat,
-  'joinedAt' : IDL.Int,
-  'correctAnswers' : IDL.Nat,
-});
-export const UserProfile = IDL.Record({ 'name' : IDL.Text });
 export const Chapter = IDL.Record({
   'id' : IDL.Nat,
   'title' : IDL.Text,
@@ -68,6 +60,14 @@ export const Chapter = IDL.Record({
   'description' : IDL.Text,
   'sequence' : IDL.Nat,
 });
+export const UserStats = IDL.Record({
+  'averageTimePerQuestion' : IDL.Nat,
+  'displayName' : IDL.Text,
+  'totalQuestionsAnswered' : IDL.Nat,
+  'joinedAt' : IDL.Int,
+  'correctAnswers' : IDL.Nat,
+});
+export const UserProfile = IDL.Record({ 'name' : IDL.Text });
 export const PracticeProgressKey = IDL.Record({
   'subject' : Subject,
   'year' : IDL.Opt(IDL.Nat),
@@ -157,13 +157,25 @@ export const idlService = IDL.Service({
       [IDL.Nat],
       [],
     ),
-  'createQuestionsBulk' : IDL.Func([IDL.Vec(Question)], [IDL.Vec(IDL.Nat)], []),
+  'createQuestionBulkUploadInput' : IDL.Func([Question], [IDL.Nat], []),
+  'deleteAllQuestions' : IDL.Func([], [], []),
   'deleteChapter' : IDL.Func([IDL.Nat], [], []),
   'deleteQuestion' : IDL.Func([IDL.Nat], [], []),
+  'deleteQuestionsForChapterAndCategory' : IDL.Func(
+      [IDL.Nat, Category],
+      [],
+      [],
+    ),
+  'getAllChapters' : IDL.Func([], [IDL.Vec(Chapter)], ['query']),
   'getCallerStats' : IDL.Func([], [UserStats], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getChaptersBySubject' : IDL.Func([Subject], [IDL.Vec(Chapter)], ['query']),
+  'getChaptersBySubjectPublic' : IDL.Func(
+      [Subject],
+      [IDL.Vec(Chapter)],
+      ['query'],
+    ),
   'getLeaderboard' : IDL.Func([], [IDL.Vec(UserStats)], ['query']),
   'getOrCreatePracticeProgress' : IDL.Func(
       [PracticeProgressKey, IDL.Nat],
@@ -173,6 +185,16 @@ export const idlService = IDL.Service({
   'getPracticeProgress' : IDL.Func(
       [PracticeProgressKey],
       [IDL.Opt(PracticeProgress)],
+      ['query'],
+    ),
+  'getQuestionsByChapterAndCategory' : IDL.Func(
+      [IDL.Nat, Category],
+      [IDL.Vec(Question)],
+      ['query'],
+    ),
+  'getQuestionsByChapterCategoryAndYear' : IDL.Func(
+      [IDL.Nat, Category, IDL.Nat],
+      [IDL.Vec(Question)],
       ['query'],
     ),
   'getQuestionsForChapter' : IDL.Func(
@@ -211,7 +233,6 @@ export const idlService = IDL.Service({
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isCallerContributor' : IDL.Func([], [IDL.Bool], ['query']),
   'listChapters' : IDL.Func([], [IDL.Vec(Chapter)], ['query']),
-  'listQuestions' : IDL.Func([], [IDL.Vec(Question)], ['query']),
   'revokeContributorAccess' : IDL.Func([IDL.Principal], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'savePracticeProgress' : IDL.Func(
@@ -294,14 +315,6 @@ export const idlFactory = ({ IDL }) => {
     'optionC' : IDL.Text,
     'optionD' : IDL.Text,
   });
-  const UserStats = IDL.Record({
-    'averageTimePerQuestion' : IDL.Nat,
-    'displayName' : IDL.Text,
-    'totalQuestionsAnswered' : IDL.Nat,
-    'joinedAt' : IDL.Int,
-    'correctAnswers' : IDL.Nat,
-  });
-  const UserProfile = IDL.Record({ 'name' : IDL.Text });
   const Chapter = IDL.Record({
     'id' : IDL.Nat,
     'title' : IDL.Text,
@@ -310,6 +323,14 @@ export const idlFactory = ({ IDL }) => {
     'description' : IDL.Text,
     'sequence' : IDL.Nat,
   });
+  const UserStats = IDL.Record({
+    'averageTimePerQuestion' : IDL.Nat,
+    'displayName' : IDL.Text,
+    'totalQuestionsAnswered' : IDL.Nat,
+    'joinedAt' : IDL.Int,
+    'correctAnswers' : IDL.Nat,
+  });
+  const UserProfile = IDL.Record({ 'name' : IDL.Text });
   const PracticeProgressKey = IDL.Record({
     'subject' : Subject,
     'year' : IDL.Opt(IDL.Nat),
@@ -399,17 +420,25 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Nat],
         [],
       ),
-    'createQuestionsBulk' : IDL.Func(
-        [IDL.Vec(Question)],
-        [IDL.Vec(IDL.Nat)],
-        [],
-      ),
+    'createQuestionBulkUploadInput' : IDL.Func([Question], [IDL.Nat], []),
+    'deleteAllQuestions' : IDL.Func([], [], []),
     'deleteChapter' : IDL.Func([IDL.Nat], [], []),
     'deleteQuestion' : IDL.Func([IDL.Nat], [], []),
+    'deleteQuestionsForChapterAndCategory' : IDL.Func(
+        [IDL.Nat, Category],
+        [],
+        [],
+      ),
+    'getAllChapters' : IDL.Func([], [IDL.Vec(Chapter)], ['query']),
     'getCallerStats' : IDL.Func([], [UserStats], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getChaptersBySubject' : IDL.Func([Subject], [IDL.Vec(Chapter)], ['query']),
+    'getChaptersBySubjectPublic' : IDL.Func(
+        [Subject],
+        [IDL.Vec(Chapter)],
+        ['query'],
+      ),
     'getLeaderboard' : IDL.Func([], [IDL.Vec(UserStats)], ['query']),
     'getOrCreatePracticeProgress' : IDL.Func(
         [PracticeProgressKey, IDL.Nat],
@@ -419,6 +448,16 @@ export const idlFactory = ({ IDL }) => {
     'getPracticeProgress' : IDL.Func(
         [PracticeProgressKey],
         [IDL.Opt(PracticeProgress)],
+        ['query'],
+      ),
+    'getQuestionsByChapterAndCategory' : IDL.Func(
+        [IDL.Nat, Category],
+        [IDL.Vec(Question)],
+        ['query'],
+      ),
+    'getQuestionsByChapterCategoryAndYear' : IDL.Func(
+        [IDL.Nat, Category, IDL.Nat],
+        [IDL.Vec(Question)],
         ['query'],
       ),
     'getQuestionsForChapter' : IDL.Func(
@@ -457,7 +496,6 @@ export const idlFactory = ({ IDL }) => {
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isCallerContributor' : IDL.Func([], [IDL.Bool], ['query']),
     'listChapters' : IDL.Func([], [IDL.Vec(Chapter)], ['query']),
-    'listQuestions' : IDL.Func([], [IDL.Vec(Question)], ['query']),
     'revokeContributorAccess' : IDL.Func([IDL.Principal], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'savePracticeProgress' : IDL.Func(

@@ -136,13 +136,20 @@ export interface _SERVICE {
     ],
     bigint
   >,
-  'createQuestionsBulk' : ActorMethod<[Array<Question>], Array<bigint>>,
+  'createQuestionBulkUploadInput' : ActorMethod<[Question], bigint>,
+  'deleteAllQuestions' : ActorMethod<[], undefined>,
   'deleteChapter' : ActorMethod<[bigint], undefined>,
   'deleteQuestion' : ActorMethod<[bigint], undefined>,
+  'deleteQuestionsForChapterAndCategory' : ActorMethod<
+    [bigint, Category],
+    undefined
+  >,
+  'getAllChapters' : ActorMethod<[], Array<Chapter>>,
   'getCallerStats' : ActorMethod<[], UserStats>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getChaptersBySubject' : ActorMethod<[Subject], Array<Chapter>>,
+  'getChaptersBySubjectPublic' : ActorMethod<[Subject], Array<Chapter>>,
   'getLeaderboard' : ActorMethod<[], Array<UserStats>>,
   'getOrCreatePracticeProgress' : ActorMethod<
     [PracticeProgressKey, bigint],
@@ -151,6 +158,14 @@ export interface _SERVICE {
   'getPracticeProgress' : ActorMethod<
     [PracticeProgressKey],
     [] | [PracticeProgress]
+  >,
+  'getQuestionsByChapterAndCategory' : ActorMethod<
+    [bigint, Category],
+    Array<Question>
+  >,
+  'getQuestionsByChapterCategoryAndYear' : ActorMethod<
+    [bigint, Category, bigint],
+    Array<Question>
   >,
   'getQuestionsForChapter' : ActorMethod<[bigint], Array<Question>>,
   'getQuestionsForYear' : ActorMethod<[bigint, Category], Array<Question>>,
@@ -167,7 +182,6 @@ export interface _SERVICE {
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isCallerContributor' : ActorMethod<[], boolean>,
   'listChapters' : ActorMethod<[], Array<Chapter>>,
-  'listQuestions' : ActorMethod<[], Array<Question>>,
   'revokeContributorAccess' : ActorMethod<[Principal], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'savePracticeProgress' : ActorMethod<

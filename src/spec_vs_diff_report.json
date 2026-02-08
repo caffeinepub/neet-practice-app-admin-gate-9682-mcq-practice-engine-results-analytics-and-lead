@@ -1,60 +1,43 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-08T17:09:07.119Z",
-  "summary": "Diff adds backend migration wiring and updates PracticePage with more defensive handling, but does not provide clear evidence that PDF import UI was fully removed from Contributor mode or that the backend bulk-create ID mismatch was fixed. Several PDF-related frontend utilities and the PdfImportPreviewList component still exist/are modified, suggesting incomplete removal.",
+  "generatedAt": "2026-02-08T19:10:07.307Z",
+  "summary": "Diff shows updates to PracticePage route param handling/validation and some query-hook gating, but does not provide clear evidence that per-question delete UI was removed from Contributor Panel, nor that backend read-only endpoints are accessible to unauthenticated users. Navigation fix from ChapterCategorySelectPage to PracticePage is not evidenced in the provided file diffs.",
   "missing_requirements": [
     {
       "id": "REQ-1",
-      "requirement": "Remove the PDF upload/import section from Contributor mode and revert the Contributor UI to manual question creation/editing only (no PDF upload button, no PDF import tabs/mode, no extracted preview list, and no bulk-save flow).",
-      "reason": "The diff still includes the PdfImportPreviewList component as a modified file, and the truncated ContributorPage change does not conclusively show removal of all PDF-import UI/flows.",
+      "requirement": "Remove the ability to delete individual questions from the Contributor Panel UI (remove any delete/trash controls, the delete confirmation dialog, and any wiring that triggers single-question deletion).",
+      "reason": "ContributorPage still appears to include delete-related UI dependencies (e.g., Trash2 icon, AlertDialog components). The diff snippet is truncated and does not show removal of per-question delete controls/dialogs or deletion wiring.",
       "evidence": [
-        "frontend/src/components/contributor/PdfImportPreviewList.tsx",
         "frontend/src/pages/ContributorPage.tsx"
       ]
     },
     {
       "id": "REQ-2",
-      "requirement": "Fix the backend bulk question creation logic so that newly created question IDs returned by the bulk-create endpoint correspond exactly to the IDs actually stored in the questions map.",
-      "reason": "backend/main.mo is truncated and the diff summary does not show any specific changes to a bulk-create endpoint or to ID assignment/return logic; cannot confirm the mismatch fix was implemented.",
+      "requirement": "Starting practice from ChapterCategorySelectPage navigates to PracticePage with subject, chapterId, and category correctly populated (no 'Invalid Practice Session' error).",
+      "reason": "PracticePage now reads subject/chapterId/category from route params, but the diff does not include ChapterCategorySelectPage (or equivalent) changes showing that navigation now passes the correct route params. Without that, the end-to-end navigation restoration is not confirmed.",
       "evidence": [
-        "backend/main.mo (truncated)",
-        "frontend-file-summaries.txt (mentions bulk creation hooks, but not backend fix)"
-      ]
-    }
-  ],
-  "hallucinated_features": [
-    {
-      "description": "Continued/expanded PDF-processing utilities on the frontend despite the request to remove PDF import from Contributor mode.",
-      "reason": "Multiple PDF-related utility files are present in the modified list, which is not aligned with a strict removal of the PDF import feature and is not requested by any REQ.",
-      "evidence": [
-        "frontend/src/utils/pdf/pdfjsClient.ts",
-        "frontend/src/utils/pdf/pdfSolutionMapping.ts",
-        "frontend/src/utils/pdf/pdfTextReconstruction.ts",
-        "frontend/src/utils/pdf/pdfToQuestions.ts"
+        "frontend/src/pages/PracticePage.tsx"
       ]
     },
     {
-      "description": "Added/retained a Contributor PDF import preview component file update.",
-      "reason": "REQ-1 calls for removing extracted preview list UI (PdfImportPreviewList) from Contributor mode; modifying this component suggests unrequested ongoing support rather than removal.",
+      "id": "REQ-3",
+      "requirement": "Allow read-only access to chapter/question query endpoints used by the student flow so unauthenticated users can load chapters/questions and see contributor-created questions.",
+      "reason": "backend/main.mo is truncated and the diff does not show any authorization-guard changes on chapter/question query endpoints (e.g., getChaptersBySubject, listChapters, getQuestionsByChapterAndCategory, getQuestionsByChapterCategoryAndYear). Frontend hook gating changes do not demonstrate backend unauthenticated access.",
       "evidence": [
-        "frontend/src/components/contributor/PdfImportPreviewList.tsx"
+        "backend/main.mo",
+        "frontend/src/hooks/useQueries.ts"
       ]
     }
   ],
-  "confidence": 0.62,
+  "hallucinated_features": [],
+  "confidence": 0.56,
   "changed_files": [
     "backend/main.mo",
-    "backend/migration.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/components/contributor/PdfImportPreviewList.tsx",
+    "frontend/src/hooks/useQueries.ts",
     "frontend/src/pages/ContributorPage.tsx",
     "frontend/src/pages/PracticePage.tsx",
-    "frontend/src/utils/pdf/pdfSolutionMapping.ts",
-    "frontend/src/utils/pdf/pdfTextReconstruction.ts",
-    "frontend/src/utils/pdf/pdfToQuestions.ts",
-    "frontend/src/utils/pdf/pdfjsClient.ts",
-    "frontend/src/utils/practiceProgressStorage.ts",
     "project_state.json"
   ]
 }

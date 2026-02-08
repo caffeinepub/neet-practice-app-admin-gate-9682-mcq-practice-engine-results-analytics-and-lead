@@ -141,6 +141,37 @@ export function useGetQuestionsForChapter(chapterId: bigint | null) {
       return actor.getQuestionsForChapter(chapterId);
     },
     enabled: !!actor && !actorFetching && chapterId !== null,
+    retry: 1,
+  });
+}
+
+export function useGetQuestionsByChapterAndCategory(chapterId: bigint | null, category: Category | null) {
+  const { actor, isFetching: actorFetching } = useActor();
+
+  return useQuery<Question[]>({
+    queryKey: ['questions', 'chapter', chapterId?.toString(), 'category', category],
+    queryFn: async () => {
+      if (!actor || chapterId === null || category === null) return [];
+      return actor.getQuestionsByChapterAndCategory(chapterId, category);
+    },
+    enabled: !!actor && !actorFetching && chapterId !== null && category !== null,
+  });
+}
+
+export function useGetQuestionsByChapterCategoryAndYear(
+  chapterId: bigint | null,
+  category: Category | null,
+  year: bigint | null
+) {
+  const { actor, isFetching: actorFetching } = useActor();
+
+  return useQuery<Question[]>({
+    queryKey: ['questions', 'chapter', chapterId?.toString(), 'category', category, 'year', year?.toString()],
+    queryFn: async () => {
+      if (!actor || chapterId === null || category === null || year === null) return [];
+      return actor.getQuestionsByChapterCategoryAndYear(chapterId, category, year);
+    },
+    enabled: !!actor && !actorFetching && chapterId !== null && category !== null && year !== null,
   });
 }
 
@@ -154,19 +185,6 @@ export function useGetQuestionsForYear(year: bigint | null, category: Category) 
       return actor.getQuestionsForYear(year, category);
     },
     enabled: !!actor && !actorFetching && year !== null,
-  });
-}
-
-export function useListQuestions(hasContributorAccess?: boolean) {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery<Question[]>({
-    queryKey: ['questions', 'all'],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.listQuestions();
-    },
-    enabled: !!actor && !actorFetching && (hasContributorAccess === undefined || hasContributorAccess === true),
   });
 }
 
@@ -220,21 +238,6 @@ export function useCreateQuestion() {
         questionImage ?? null,
         explanationImage ?? null
       );
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['questions'] });
-    },
-  });
-}
-
-export function useCreateQuestionsBulk() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (questions: Question[]) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.createQuestionsBulk(questions);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['questions'] });
@@ -311,37 +314,92 @@ export function useDeleteQuestion() {
   });
 }
 
-// Practice Progress - helper to create cache key with optional year
-function createProgressCacheKey(key: PracticeProgressKey) {
-  return ['practiceProgress', key.subject, key.chapterId.toString(), key.category, key.year?.toString() ?? 'no-year'];
+export function useDeleteAllQuestions() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.deleteAllQuestions();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+      queryClient.invalidateQueries({ queryKey: ['chapters'] });
+    },
+  });
 }
 
-export function useGetOrCreatePracticeProgress(key: PracticeProgressKey, totalQuestions: bigint) {
+export function useDeleteQuestionsForChapterAndCategory() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ chapterId, category }: { chapterId: bigint; category: Category }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.deleteQuestionsForChapterAndCategory(chapterId, category);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+      queryClient.invalidateQueries({ queryKey: ['chapters'] });
+    },
+  });
+}
+
+/**
+ * Practice Progress - helper to create cache key with optional year
+ * 
+ * REGRESSION TEST: To verify the null-safety fix works:
+ * 1. Navigate to /practice with missing or invalid chapterId (e.g., /practice?category=level1)
+ * 2. Verify no global "Something Went Wrong" error appears
+ * 3. Verify an in-page error message is shown with recovery actions
+ * 4. Navigate with valid params (e.g., /practice?subject=physics&chapterId=1&category=level1)
+ * 5. Verify practice session loads normally and progress tracking works
+ */
+function createProgressCacheKey(key: PracticeProgressKey | null): (string | number | null)[] {
+  if (!key) {
+    return ['practiceProgress', 'invalid'];
+  }
+  
+  // Safely handle potentially null/undefined values
+  const chapterIdStr = key.chapterId != null ? key.chapterId.toString() : 'null';
+  const yearStr = key.year != null ? key.year.toString() : 'no-year';
+  
+  return ['practiceProgress', key.subject, chapterIdStr, key.category, yearStr];
+}
+
+export function useGetOrCreatePracticeProgress(key: PracticeProgressKey | null, totalQuestions: bigint) {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
+
+  // Validate that key has all required fields before enabling query
+  const isValidKey = key != null && key.chapterId != null && key.subject != null && key.category != null;
 
   return useQuery<PracticeProgress | null>({
     queryKey: createProgressCacheKey(key),
     queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor || !key || key.chapterId == null) throw new Error('Actor or valid key not available');
       return actor.getOrCreatePracticeProgress(key, totalQuestions);
     },
-    enabled: !!actor && !actorFetching && !!identity,
+    enabled: !!actor && !actorFetching && !!identity && isValidKey,
     retry: false,
   });
 }
 
-export function useGetPracticeProgress(key: PracticeProgressKey) {
+export function useGetPracticeProgress(key: PracticeProgressKey | null) {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
+
+  // Validate that key has all required fields before enabling query
+  const isValidKey = key != null && key.chapterId != null && key.subject != null && key.category != null;
 
   return useQuery<PracticeProgress | null>({
     queryKey: createProgressCacheKey(key),
     queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor || !key || key.chapterId == null) throw new Error('Actor or valid key not available');
       return actor.getPracticeProgress(key);
     },
-    enabled: !!actor && !actorFetching && !!identity,
+    enabled: !!actor && !actorFetching && !!identity && isValidKey,
     retry: false,
   });
 }
@@ -353,6 +411,7 @@ export function useSavePracticeProgress() {
   return useMutation({
     mutationFn: async ({ key, progress }: { key: PracticeProgressKey; progress: PracticeProgress }) => {
       if (!actor) throw new Error('Actor not available');
+      if (key.chapterId == null) throw new Error('Invalid practice progress key: chapterId is required');
       return actor.savePracticeProgress(key, progress);
     },
     onSuccess: (_, variables) => {

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useVerifyContributorPassword } from '../../hooks/useAuthz';
 import { useActor } from '../../hooks/useActor';
 import { useInternetIdentity } from '../../hooks/useInternetIdentity';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +14,7 @@ export default function ContributorGateCard() {
   const [errorMessage, setErrorMessage] = useState('');
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
+  const verifyPassword = useVerifyContributorPassword();
 
   const isActorReady = !!actor && !actorFetching;
   const isLoggedIn = !!identity;
@@ -32,13 +34,18 @@ export default function ContributorGateCard() {
     }
 
     if (!isActorReady) {
-      setErrorMessage('Connecting to the canister… please wait');
+      setErrorMessage('Connecting to the canister, please wait');
       return;
     }
 
-    // Backend method unlockContributorMode is not yet implemented
-    setErrorMessage('Contributor unlock functionality is not yet available. Please contact the administrator.');
-    setPassword('');
+    try {
+      await verifyPassword.mutateAsync(password);
+      // Success - the mutation's onSuccess will invalidate queries and trigger UI update
+      setPassword('');
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Invalid password. Please try again.');
+      setPassword('');
+    }
   };
 
   return (
@@ -64,7 +71,7 @@ export default function ContributorGateCard() {
           <Alert className="mb-4">
             <Loader2 className="h-4 w-4 animate-spin" />
             <AlertDescription>
-              Connecting to the canister… please wait
+              Connecting to the canister, please wait
             </AlertDescription>
           </Alert>
         )}
@@ -90,7 +97,7 @@ export default function ContributorGateCard() {
                   setPassword(e.target.value);
                   setErrorMessage('');
                 }}
-                disabled={!isActorReady || !isLoggedIn}
+                disabled={!isActorReady || !isLoggedIn || verifyPassword.isPending}
                 className="pl-10"
                 autoFocus={isActorReady && isLoggedIn}
               />
@@ -99,7 +106,7 @@ export default function ContributorGateCard() {
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={!isActorReady || !isLoggedIn}
+            disabled={!isActorReady || !isLoggedIn || verifyPassword.isPending}
           >
             {!isLoggedIn ? (
               'Log in required'
@@ -107,6 +114,11 @@ export default function ContributorGateCard() {
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Connecting...
+              </>
+            ) : verifyPassword.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Verifying...
               </>
             ) : (
               'Unlock Contributor Mode'

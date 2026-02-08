@@ -1,87 +1,52 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Remove PDF import from Contributor mode and harden Practice flow against missing questions",
+  "title": "Restore student practice navigation and remove contributor single-question deletion UI",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Remove PDF upload/import UI and bulk-save flow from Contributor mode, leaving only manual question creation/editing/deletion.",
+      "summary": "Remove per-question deletion controls and confirmation flow from Contributor Panel while keeping create/edit and admin bulk cleanup intact.",
       "acceptanceCriteria": [
-        "Contributor page no longer renders any PDF upload controls (including file input, PDF import mode toggle/tabs, or PdfImportPreviewList).",
-        "Contributor page still supports manual question creation, editing, and deletion exactly as before (no broken imports or runtime errors).",
-        "No user-facing text about PDF import remains in Contributor mode."
+        "Contributor Panel no longer shows any UI to delete a single question (no trash icon/button per question, no per-question delete dialog).",
+        "Creating and editing questions in Contributor Panel still works.",
+        "Admin-only bulk cleanup actions (if present) remain admin-gated and unchanged unless they depend on per-question delete UI."
       ],
       "file_operations": [
         {
           "path": "frontend/src/pages/ContributorPage.tsx",
           "operation": "modify",
-          "description": "Remove all PDF-import-related state, handlers, UI (tabs/mode toggles, file input/button), extracted preview rendering, and bulk-save wiring; ensure manual question CRUD UI remains intact and the page compiles without PdfImportPreviewList/pdfToQuestions imports."
+          "description": "Remove all single-question deletion UI and wiring: delete/trash controls on question rows/cards, delete confirmation dialog, related component state (e.g., selected questionToDelete), and handler/mutation usage that triggers deleteQuestion for an individual question. Keep question create/edit flows unchanged. Keep admin-only bulk cleanup actions (e.g., delete all questions; delete by chapter+category) admin-gated and functional."
         },
         {
-          "path": "frontend/src/components/contributor/PdfImportPreviewList.tsx",
-          "operation": "delete",
-          "description": "Remove the PdfImportPreviewList component since PDF import is no longer supported in Contributor mode."
-        },
-        {
-          "path": "frontend/src/utils/pdf/pdfjsClient.ts",
-          "operation": "delete",
-          "description": "Remove PDF.js client utilities since PDF import is no longer supported in the app."
-        },
-        {
-          "path": "frontend/src/utils/pdf/pdfSolutionMapping.ts",
-          "operation": "delete",
-          "description": "Remove PDF solution mapping utilities since PDF import is no longer supported in the app."
-        },
-        {
-          "path": "frontend/src/utils/pdf/pdfTextReconstruction.ts",
-          "operation": "delete",
-          "description": "Remove PDF text reconstruction utilities since PDF import is no longer supported in the app."
-        },
-        {
-          "path": "frontend/src/utils/pdf/pdfToQuestions.ts",
-          "operation": "delete",
-          "description": "Remove PDF-to-questions extraction logic since PDF import is no longer supported in the app."
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "If ContributorPage was the only consumer of the single-question deletion hook/mutation, remove or refactor any now-unused exports/imports related to per-question deletion to prevent dead code and accidental UI reintroduction; ensure React Query keys and other contributor/admin hooks continue to function."
         }
       ]
     },
     {
-      "id": "REQ-3",
-      "summary": "Prevent Practice flow crashes and global error screens by handling empty question sets, invalid indices, and missing question references with a friendly in-page state and safe navigation.",
+      "id": "REQ-2",
+      "summary": "Restore student practice navigation by aligning PracticePage parameter reading with the router path params and using search only for optional year filtering.",
       "acceptanceCriteria": [
-        "If the selected chapter/year/category returns zero questions, the Practice page shows an in-page alert (not the global error screen) and provides a working back navigation action.",
-        "If a stored progress index points past the available questions length, the Practice page clamps safely (no crash).",
-        "No render-time exceptions occur in Practice flow when a question referenced in local/server progress cannot be found; the UI stays usable and instructs the user to restart or go back."
+        "Starting practice from ChapterCategorySelectPage navigates to PracticePage with subject, chapterId, and category correctly populated (no 'Invalid Practice Session' error).",
+        "PracticePage reads subject/chapterId/category from the route parameters used by navigation (and reads year from search only when applicable), so the validation error is not triggered during normal navigation.",
+        "Practice sessions load questions successfully for Level 1, NEET PYQ, and JEE PYQ (including year selection when applicable)."
       ],
       "file_operations": [
         {
           "path": "frontend/src/pages/PracticePage.tsx",
           "operation": "modify",
-          "description": "Add defensive guards to avoid rendering with an undefined current question (e.g., clamp currentQuestionIndex whenever questions change, and show a friendly in-page error/empty state with working navigation back to the chapter category selection); ensure submission logic handles missing question lookups without runtime errors and provides a restart/go-back action in English."
-        },
-        {
-          "path": "frontend/src/utils/practiceProgressStorage.ts",
-          "operation": "modify",
-          "description": "Add a small utility to clear/reset stored anonymous practice progress for a given (subject/chapter/category/year) key, so PracticePage can offer a safe 'Restart' action when local progress is invalid."
-        }
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "summary": "Ensure Student flows only display persisted questions from backend queries and never include any PDF-import transient preview data.",
-      "acceptanceCriteria": [
-        "Student flows (chapter/year practice) source questions only from backend queries and never from any PDF-extraction preview state.",
-        "If any PDF-import-specific path previously caused questions to appear unexpectedly in Student mode, it is removed/disabled so only the intended persisted questions are shown."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/pages/PracticePage.tsx",
-          "operation": "modify",
-          "description": "Confirm PracticePage continues to derive its question list exclusively from backend queries (chapter/year queries) and remove/avoid any reliance on PDF-extraction/transient state; keep all user-facing text in English."
+          "description": "Update PracticePage to read required identifiers (subject, chapterId, category) from route params for '/practice/$subject/$chapterId/$category' (via TanStack Router params), and read only 'year' from validated search params. Adjust validation logic so normal navigation from ChapterCategorySelectPage does not trigger the 'Invalid Practice Session' error. Ensure PYQ flows use year filtering only when a year is provided, and non-PYQ flows ignore year. Keep progress key creation and question-fetch hooks consistent with the resolved params."
         },
         {
           "path": "frontend/src/pages/ChapterCategorySelectPage.tsx",
           "operation": "modify",
-          "description": "Ensure category availability and year selection are computed only from chapter questions fetched from the backend, with no references to any PDF-import/extracted preview data."
+          "description": "Verify navigation calls to PracticePage pass subject/chapterId/category as route params and only include 'year' in search when applicable (PYQ categories). Adjust only if needed to match the restored param-reading behavior in PracticePage."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Ensure the Practice route definition and search validation remain compatible with the restored behavior (route params for subject/chapterId/category; optional numeric 'year' in search). Update validateSearch typing/logic only if required to support PracticePage reading 'year' from search without requiring other fields in search."
         }
       ]
     }

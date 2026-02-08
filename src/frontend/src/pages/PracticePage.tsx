@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { useActor } from '../hooks/useActor';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import {
-  useGetQuestionsForChapter,
-  useGetQuestionsForYear,
+  useGetQuestionsByChapterAndCategory,
+  useGetQuestionsByChapterCategoryAndYear,
   useSubmitTestResult,
   useGetOrCreatePracticeProgress,
   useSavePracticeProgress,
@@ -17,17 +17,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, ArrowRight, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Loader2, AlertCircle, Home } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Subject, Category, QuestionAttempt, Question, PracticeProgressKey } from '../backend';
+import { Subject, Category, type QuestionAttempt, type Question, type PracticeProgressKey } from '../backend';
 import { loadPracticeProgress, savePracticeProgress as saveLocalProgress, StoredAnswer, clearProgress } from '../utils/practiceProgressStorage';
-
-interface PracticeSearchParams {
-  subject: Subject;
-  chapterId: string;
-  category: Category;
-  year?: string;
-}
 
 interface QuestionAnswer {
   questionId: bigint;
@@ -37,40 +30,76 @@ interface QuestionAnswer {
 
 export default function PracticePage() {
   const navigate = useNavigate();
-  const search = useSearch({ strict: false }) as PracticeSearchParams;
+  const params = useParams({ from: '/practice/$subject/$chapterId/$category' });
+  const search = useSearch({ from: '/practice/$subject/$chapterId/$category' });
   const { actor } = useActor();
   const { identity } = useInternetIdentity();
 
-  const { subject, chapterId, category, year } = search;
-  const chapterIdBigInt = chapterId ? BigInt(chapterId) : null;
-  const yearBigInt = year ? BigInt(year) : undefined;
+  // Read required params from route params and cast to proper types
+  const subject = params.subject as Subject;
+  const chapterId = params.chapterId;
+  const category = params.category as Category;
+  
+  // Read optional year from search params
+  const { year: yearNumber } = search;
 
-  const isPYQ = category === 'neetPYQ' || category === 'jeePYQ';
+  // Parse and validate chapterId
+  let chapterIdBigInt: bigint | null = null;
+  let chapterIdError = false;
+  if (chapterId) {
+    try {
+      chapterIdBigInt = BigInt(chapterId);
+    } catch (e) {
+      chapterIdError = true;
+    }
+  }
+
+  // Parse and validate year if provided
+  let yearBigInt: bigint | undefined = undefined;
+  let yearError = false;
+  if (yearNumber !== undefined) {
+    try {
+      yearBigInt = BigInt(yearNumber);
+    } catch (e) {
+      yearError = true;
+    }
+  }
+
+  // Check if required params are missing or invalid
+  const hasInvalidParams = !subject || !chapterId || !category || chapterIdError || yearError;
+
+  const isPYQ = category === Category.neetPYQ || category === Category.jeePYQ;
   const isYearFiltered = isPYQ && yearBigInt !== undefined;
 
-  const { data: chapterQuestions, isLoading: chapterQuestionsLoading } = useGetQuestionsForChapter(
-    !isYearFiltered ? chapterIdBigInt : null
-  );
-  const { data: yearQuestions, isLoading: yearQuestionsLoading } = useGetQuestionsForYear(
-    isYearFiltered ? yearBigInt! : null,
-    isYearFiltered ? category : ('level1' as Category)
+  // Only fetch questions if params are valid
+  const { data: chapterCategoryQuestions, isLoading: chapterCategoryLoading } = useGetQuestionsByChapterAndCategory(
+    !hasInvalidParams && !isYearFiltered ? chapterIdBigInt : null,
+    !hasInvalidParams && !isYearFiltered ? category : null
   );
 
-  const isLoading = isYearFiltered ? yearQuestionsLoading : chapterQuestionsLoading;
-  const allQuestions = isYearFiltered ? yearQuestions : chapterQuestions;
+  const { data: chapterCategoryYearQuestions, isLoading: chapterCategoryYearLoading } =
+    useGetQuestionsByChapterCategoryAndYear(
+      !hasInvalidParams && isYearFiltered ? chapterIdBigInt : null,
+      !hasInvalidParams && isYearFiltered ? category : null,
+      !hasInvalidParams && isYearFiltered ? yearBigInt! : null
+    );
 
-  const questions = allQuestions?.filter((q) => q.category === category) || [];
+  const isLoading = isYearFiltered ? chapterCategoryYearLoading : chapterCategoryLoading;
+  const questions = isYearFiltered ? chapterCategoryYearQuestions : chapterCategoryQuestions;
 
-  const progressKey: PracticeProgressKey = {
-    subject,
-    chapterId: chapterIdBigInt!,
-    category,
-    year: yearBigInt,
-  };
+  // Create progress key only if params are valid
+  const progressKey: PracticeProgressKey | null = !hasInvalidParams && chapterIdBigInt !== null && subject && category
+    ? {
+        subject: subject,
+        chapterId: chapterIdBigInt,
+        category: category,
+        year: yearBigInt,
+      }
+    : null;
 
   const { data: serverProgress, isLoading: progressLoading } = useGetOrCreatePracticeProgress(
     progressKey,
-    BigInt(questions.length)
+    BigInt(questions?.length || 0)
   );
   const savePracticeProgressMutation = useSavePracticeProgress();
   const submitTestResult = useSubmitTestResult();
@@ -83,35 +112,52 @@ export default function PracticePage() {
 
   const isAuthenticated = !!identity;
 
+  // All hooks must be called before any conditional returns
   useEffect(() => {
-    if (!isLoading && questions.length > 0 && !progressLoading) {
+    if (hasInvalidParams) return; // Skip effect if params are invalid
+    
+    if (!isLoading && questions && questions.length > 0 && !progressLoading && subject && chapterId && category) {
       let startIndex = 0;
       let loadedAnswers = new Map<number, QuestionAnswer>();
+      let needsProgressReset = false;
 
       if (isAuthenticated && serverProgress) {
-        startIndex = Number(serverProgress.lastQuestionIndex) - 1;
-        if (startIndex < 0) startIndex = 0;
-        if (startIndex >= questions.length) startIndex = questions.length - 1;
-      } else {
-        const localProgress = loadPracticeProgress(subject, chapterId, category, year);
-        if (localProgress) {
-          startIndex = localProgress.lastQuestionIndex;
-          if (startIndex < 0) startIndex = 0;
-          if (startIndex >= questions.length) startIndex = questions.length - 1;
+        const serverIndex = Number(serverProgress.lastQuestionIndex) - 1;
 
-          if (localProgress.answers) {
-            Object.entries(localProgress.answers).forEach(([qIdStr, answer]) => {
-              const typedAnswer = answer as StoredAnswer;
-              const qId = BigInt(qIdStr);
-              const qIndex = questions.findIndex((q) => q.id === qId);
-              if (qIndex !== -1 && typedAnswer.selectedOption) {
-                loadedAnswers.set(qIndex, {
-                  questionId: qId,
-                  selectedOption: typedAnswer.selectedOption,
-                  timeTaken: BigInt(typedAnswer.timeTaken || 0),
-                });
-              }
-            });
+        if (serverIndex < 0 || serverIndex >= questions.length) {
+          console.warn('Invalid server progress detected, resetting to Question 1');
+          needsProgressReset = true;
+          startIndex = 0;
+        } else {
+          startIndex = serverIndex;
+        }
+      } else {
+        const yearStr = yearNumber !== undefined ? yearNumber.toString() : undefined;
+        const localProgress = loadPracticeProgress(subject, chapterId, category, yearStr);
+        if (localProgress) {
+          const localIndex = localProgress.lastQuestionIndex;
+
+          if (localIndex < 0 || localIndex >= questions.length) {
+            console.warn('Invalid local progress detected, resetting to Question 1');
+            clearProgress(subject, chapterId, category, yearStr);
+            startIndex = 0;
+          } else {
+            startIndex = localIndex;
+
+            if (localProgress.answers) {
+              Object.entries(localProgress.answers).forEach(([qIdStr, answer]) => {
+                const typedAnswer = answer as StoredAnswer;
+                const qId = BigInt(qIdStr);
+                const qIndex = questions.findIndex((q) => q.id === qId);
+                if (qIndex !== -1 && typedAnswer.selectedOption) {
+                  loadedAnswers.set(qIndex, {
+                    questionId: qId,
+                    selectedOption: typedAnswer.selectedOption,
+                    timeTaken: BigInt(typedAnswer.timeTaken || 0),
+                  });
+                }
+              });
+            }
           }
         }
       }
@@ -119,14 +165,69 @@ export default function PracticePage() {
       setCurrentQuestionIndex(startIndex);
       setAnswers(loadedAnswers);
       start();
+
+      if (needsProgressReset && isAuthenticated && actor && progressKey) {
+        const resetProgress = {
+          lastQuestionIndex: BigInt(1),
+          discoveredQuestionIds: questions.slice(0, 1).map((q) => q.id),
+        };
+        savePracticeProgressMutation
+          .mutateAsync({
+            key: progressKey,
+            progress: resetProgress,
+          })
+          .catch((error) => {
+            console.error('Failed to persist progress reset:', error);
+          });
+      }
     }
-  }, [isLoading, questions.length, progressLoading, serverProgress, isAuthenticated, subject, chapterId, category, year]);
+  }, [hasInvalidParams, isLoading, questions?.length, progressLoading, serverProgress, isAuthenticated, subject, chapterId, category, yearNumber]);
 
   useEffect(() => {
     return () => {
       stop();
     };
-  }, []);
+  }, [stop]);
+
+  // Now we can do conditional returns after all hooks are called
+  if (hasInvalidParams) {
+    return (
+      <MobilePage maxWidth="md">
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate({ to: '/subject' })}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold">Invalid Practice Session</h1>
+              <p className="text-sm text-muted-foreground">The practice session parameters are missing or invalid</p>
+            </div>
+          </div>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {!subject && 'Subject is required. '}
+              {!chapterId && 'Chapter ID is required. '}
+              {!category && 'Category is required. '}
+              {chapterIdError && 'Chapter ID is invalid. '}
+              {yearError && 'Year is invalid. '}
+              Please go back and select a valid practice session.
+            </AlertDescription>
+          </Alert>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate({ to: -1 } as any)}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Go Back
+            </Button>
+            <Button onClick={() => navigate({ to: '/' })}>
+              <Home className="w-4 h-4 mr-2" />
+              Go Home
+            </Button>
+          </div>
+        </div>
+      </MobilePage>
+    );
+  }
 
   if (isLoading || progressLoading) {
     return (
@@ -150,7 +251,7 @@ export default function PracticePage() {
               onClick={() =>
                 navigate({
                   to: '/chapter/$subject/$chapterId/category',
-                  params: { subject, chapterId },
+                  params: { subject: subject!, chapterId: chapterId! },
                 })
               }
             >
@@ -174,7 +275,7 @@ export default function PracticePage() {
               onClick={() =>
                 navigate({
                   to: '/chapter/$subject/$chapterId/category',
-                  params: { subject, chapterId },
+                  params: { subject: subject!, chapterId: chapterId! },
                 })
               }
             >
@@ -187,11 +288,9 @@ export default function PracticePage() {
     );
   }
 
-  // Clamp current question index to valid range
   const safeCurrentIndex = Math.max(0, Math.min(currentQuestionIndex, questions.length - 1));
   const currentQuestion = questions[safeCurrentIndex];
 
-  // Handle missing question gracefully
   if (!currentQuestion) {
     return (
       <MobilePage maxWidth="md">
@@ -214,15 +313,32 @@ export default function PracticePage() {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => {
-                // Clear local progress
-                clearProgress(subject, chapterId, category, year);
-                // Reset to first question
-                setCurrentQuestionIndex(0);
-                setAnswers(new Map());
-                reset();
-                start();
-                toast.success('Progress reset. Starting from the beginning.');
+              onClick={async () => {
+                if (subject && chapterId && category) {
+                  const yearStr = yearNumber !== undefined ? yearNumber.toString() : undefined;
+                  clearProgress(subject, chapterId, category, yearStr);
+
+                  setCurrentQuestionIndex(0);
+                  setAnswers(new Map());
+                  reset();
+                  start();
+
+                  if (isAuthenticated && actor && progressKey) {
+                    try {
+                      await savePracticeProgressMutation.mutateAsync({
+                        key: progressKey,
+                        progress: {
+                          lastQuestionIndex: BigInt(1),
+                          discoveredQuestionIds: questions.slice(0, 1).map((q) => q.id),
+                        },
+                      });
+                    } catch (error) {
+                      console.error('Failed to persist progress reset:', error);
+                    }
+                  }
+
+                  toast.success('Progress reset. Starting from the beginning.');
+                }
               }}
             >
               Restart Practice
@@ -231,7 +347,7 @@ export default function PracticePage() {
               onClick={() =>
                 navigate({
                   to: '/chapter/$subject/$chapterId/category',
-                  params: { subject, chapterId },
+                  params: { subject: subject!, chapterId: chapterId! },
                 })
               }
             >
@@ -259,7 +375,7 @@ export default function PracticePage() {
     newAnswers.set(safeCurrentIndex, newAnswer);
     setAnswers(newAnswers);
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated && subject && chapterId && category) {
       const answersObj: Record<string, StoredAnswer> = {};
       newAnswers.forEach((ans) => {
         answersObj[ans.questionId.toString()] = {
@@ -267,7 +383,8 @@ export default function PracticePage() {
           timeTaken: Number(ans.timeTaken),
         };
       });
-      saveLocalProgress(subject, chapterId, category, safeCurrentIndex, answersObj, year);
+      const yearStr = yearNumber !== undefined ? yearNumber.toString() : undefined;
+      saveLocalProgress(subject, chapterId, category, safeCurrentIndex, answersObj, yearStr);
     }
   };
 
@@ -278,7 +395,7 @@ export default function PracticePage() {
       reset();
       start();
 
-      if (isAuthenticated && actor) {
+      if (isAuthenticated && actor && progressKey) {
         try {
           await savePracticeProgressMutation.mutateAsync({
             key: progressKey,
@@ -290,7 +407,7 @@ export default function PracticePage() {
         } catch (error) {
           console.error('Failed to save progress:', error);
         }
-      } else {
+      } else if (subject && chapterId && category) {
         const answersObj: Record<string, StoredAnswer> = {};
         answers.forEach((ans) => {
           answersObj[ans.questionId.toString()] = {
@@ -298,7 +415,8 @@ export default function PracticePage() {
             timeTaken: Number(ans.timeTaken),
           };
         });
-        saveLocalProgress(subject, chapterId, category, nextIndex, answersObj, year);
+        const yearStr = yearNumber !== undefined ? yearNumber.toString() : undefined;
+        saveLocalProgress(subject, chapterId, category, nextIndex, answersObj, yearStr);
       }
     }
   };
@@ -328,6 +446,11 @@ export default function PracticePage() {
       return;
     }
 
+    if (!chapterIdBigInt || !subject) {
+      toast.error('Invalid session parameters');
+      return;
+    }
+
     setIsSubmitting(true);
     stop();
 
@@ -346,8 +469,8 @@ export default function PracticePage() {
       });
 
       const resultId = await submitTestResult.mutateAsync({
-        subject,
-        chapterId: chapterIdBigInt!,
+        subject: subject,
+        chapterId: chapterIdBigInt,
         attempts,
       });
 
@@ -370,7 +493,7 @@ export default function PracticePage() {
             onClick={() =>
               navigate({
                 to: '/chapter/$subject/$chapterId/category',
-                params: { subject, chapterId },
+                params: { subject: subject, chapterId },
               })
             }
           >
@@ -401,44 +524,58 @@ export default function PracticePage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardDescription>
+              <CardTitle>
                 Question {safeCurrentIndex + 1} of {questions.length}
-              </CardDescription>
-              <Badge>{category}</Badge>
+              </CardTitle>
+              {currentQuestion.year && (
+                <Badge variant="outline">Year: {currentQuestion.year.toString()}</Badge>
+              )}
             </div>
-            <CardTitle className="text-lg whitespace-pre-wrap break-words">{currentQuestion.questionText}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {['A', 'B', 'C', 'D'].map((option) => {
-              const optionText = currentQuestion[`option${option}` as keyof Question] as string;
-              const isSelected = currentAnswer?.selectedOption === option;
+          <CardContent className="space-y-6">
+            <p className="text-lg whitespace-pre-wrap">{currentQuestion.questionText}</p>
 
-              return (
-                <button
-                  key={option}
-                  onClick={() => handleOptionSelect(option)}
-                  className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
-                    isSelected
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-primary/50 hover:bg-accent'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                        isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground'
-                      }`}
-                    >
-                      {isSelected && <CheckCircle className="w-4 h-4" />}
+            {currentQuestion.questionImage && (
+              <div className="flex justify-center">
+                <img
+                  src={currentQuestion.questionImage.getDirectURL()}
+                  alt="Question diagram"
+                  className="max-w-full h-auto rounded-lg border"
+                />
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {['A', 'B', 'C', 'D'].map((option) => {
+                const optionKey = `option${option}` as keyof Question;
+                const optionText = currentQuestion[optionKey] as string;
+                const isSelected = currentAnswer?.selectedOption === option;
+
+                return (
+                  <button
+                    key={option}
+                    onClick={() => handleOptionSelect(option)}
+                    className={`w-full p-4 text-left border-2 rounded-lg transition-all ${
+                      isSelected
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-primary/50 hover:bg-accent'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-medium ${
+                          isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {option}
+                      </div>
+                      <span className="flex-1 pt-1">{optionText}</span>
+                      {isSelected && <CheckCircle className="w-5 h-5 text-primary flex-shrink-0 mt-1" />}
                     </div>
-                    <div className="flex-1">
-                      <span className="font-medium">{option}.</span>{' '}
-                      <span className="whitespace-pre-wrap break-words">{optionText}</span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 
@@ -471,7 +608,7 @@ export default function PracticePage() {
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              You are practicing anonymously. Log in to save your progress and submit your test results.
+              You're practicing as a guest. Log in to save your progress and submit your test results.
             </AlertDescription>
           </Alert>
         )}

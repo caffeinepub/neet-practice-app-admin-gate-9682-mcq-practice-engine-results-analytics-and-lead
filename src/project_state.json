@@ -1,34 +1,26 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Question management app with a student section: remove the PDF upload section, display only manually added questions, preserve previously added questions across updates, and fix the student question view error (“Something went wrong”).",
+  "summary": "New project",
   "architectural_notes": [],
   "known_issues": [
-    "Student section shows “Something went wrong” when opening a question."
+    "Student opening a level shows validation errors: 'Subject is required. Chapter ID is required. Category is required. Please go back and select a valid practice session.'; contributor-added questions not visible to students."
   ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-remove-the-pdf-upload-import-section-from-contributor-mode-and-revert-the-contributor-ui-to-manual-question-creation-editing-only-no-pdf-upload-button-no-pdf-import-tabs-mode-no-extracted-preview-list-and-no-bulk-save-flow",
-      "title": "Remove the PDF upload/import section from Contributor mode and revert the Contributor UI to manual question creation/editing only (no PDF upload button, no PDF import tabs/mode, no extracted preview list, and no bulk-save flow).",
+      "id": "feature-remove-the-ability-to-delete-individual-questions-from-the-contributor-panel-ui-remove-any-delete-trash-controls-the-delete-confirmation-dialog-and-any-wiring-that-triggers-single-question-deletion",
+      "title": "Remove the ability to delete individual questions from the Contributor Panel UI (remove any delete/trash controls, the delete confirmation dialog, and any wiring that triggers single-question deletion).",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-ensure-the-student-practice-question-view-never-shows-the-global-something-went-wrong-error-due-to-missing-questions-or-invalid-indices-ids-instead-handle-these-cases-gracefully-with-an-english-user-friendly-empty-error-state-and-safe-navigation-back-to-selection-pages",
-      "title": "Ensure the Student/Practice question view never shows the global “Something went wrong” error due to missing questions or invalid indices/IDs; instead, handle these cases gracefully with an English, user-friendly empty/error state and safe navigation back to selection pages.",
+      "id": "feature-fix-the-student-practice-flow-so-opening-a-level-category-launches-a-valid-practice-session-without-showing-subject-is-required-chapter-id-is-required-category-is-required-please-go-back-and-select-a-valid-practice-session-restore-the-navigation-parameter-passing-behavior-to-match-the-working-previous-version",
+      "title": "Fix the student practice flow so opening a level/category launches a valid practice session without showing: \"Subject is required. Chapter ID is required. Category is required. Please go back and select a valid practice session.\" Restore the navigation/parameter passing behavior to match the working previous version.",
       "reqIds": [
-        "REQ-3"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-show-only-the-questions-the-user-admin-has-added-i-e-do-not-display-any-pdf-import-extracted-question-set-in-student-views-aligned-with-the-removal-of-pdf-import-ensure-question-listing-in-student-flows-is-based-only-on-the-persisted-question-set-and-does-not-include-any-transient-extracted-preview-data",
-      "title": "Show only the questions the user/admin has added (i.e., do not display any PDF-import/extracted question set in Student views), aligned with the removal of PDF import; ensure question listing in student flows is based only on the persisted question set and does not include any transient extracted preview data.",
-      "reqIds": [
-        "REQ-5"
+        "REQ-2"
       ],
       "version": 1
     }
@@ -36,46 +28,26 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Remove the PDF upload section and revert UI to the previous state (no PDF upload).",
+      "summary": "Remove the 'remove/delete question' option in contributor mode",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "Show only the questions that the admin/user manually added (exclude PDF-extracted/imported questions).",
+      "summary": "Fix student view: questions added by contributor should be visible; opening a level should not show 'Subject/Chapter ID/Category is required' practice session validation error (restore previous behavior)",
       "reqIds": [],
       "status": "pending"
     },
     {
-      "id": "AR-3",
-      "summary": "Ensure existing/old questions are not deleted on future updates (persist questions across releases/migrations).",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-4",
-      "summary": "Fix the student section error when opening a question (shows “Something went wrong”).",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-6",
-      "summary": "Fix the backend bulk question creation logic so that newly created question IDs returned by the bulk-create endpoint correspond exactly to the IDs actually stored in the questions map (preventing downstream 'question not found' / mismatch errors when opening questions).",
+      "id": "AR-5",
+      "summary": "Ensure questions created by contributors are visible in student mode (including when the student is not logged in) by allowing read-only access to chapter/question query endpoints used by the student flow.",
       "reqIds": [
-        "REQ-2"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-8",
-      "summary": "Ensure that future deployments/upgrades do not delete previously created questions (and related core data like chapters) by preserving actor state across upgrades; update/introduce migration/upgrade handling as needed under the project’s conditional migration policy.",
-      "reqIds": [
-        "REQ-4"
+        "REQ-3"
       ],
       "status": "pending"
     }
   ],
-  "projectName": "Remove PDF upload, keep existing questions across updates, and fix student question open error",
+  "projectName": "Restore student practice navigation and remove question deletion controls from contributor mode",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }
